@@ -1,0 +1,29 @@
+{% load i18n %}
+
+<h3>{% blocktrans with title=title %} By {{ title }} {% endblocktrans %}</h3>
+<ul>
+    {% for choice in choices %}
+        <li{% if choice.selected %} class="selected"{% endif %}>
+            <a href="{{ choice.query_string|safe }}">{{ choice.display }}</a>
+        </li>
+    {% endfor %}
+</ul>
+
+<div class="date-range-filter" style="padding: 0 20px 15px 20px;">
+    <form method="get" id="date-range-form">
+        {% for key, value in spec.query_params.items %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endfor %}
+        <input type="hidden" name="sold_date" value="custom">
+        
+        <div style="margin-bottom: 10px;">
+            <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px;">From:</label>
+            <input type="date" name="sold_date__range__gte" value="{{ spec.from_date|default:'' }}" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px;">To:</label>
+            <input type="date" name="sold_date__range__lte" value="{{ spec.to_date|default:'' }}" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-main);">
+        </div>
+        <button type="submit" class="button" style="width: 100%; padding: 10px; font-size: 12px;">Apply Filter</button>
+    </form>
+</div>

@@ -1,0 +1,143 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        /* Cleaned styles for the transaction table to work with default Django Admin */
+        .transaction-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: #fff;
+        }
+
+        .transaction-table th,
+        .transaction-table td {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .transaction-table th {
+            background: #f8f8f8;
+            font-weight: bold;
+            color: #666;
+            text-transform: uppercase;
+            font-size: 11px;
+        }
+
+        .transaction-table tbody tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .transaction-table tfoot tr {
+            background: #eee;
+            font-weight: bold;
+        }
+
+        .transaction-table tfoot td {
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        .transaction-table .numeric-col {
+            text-align: right;
+            font-family: monospace;
+        }
+
+        /* Badge styling */
+        .badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+            display: inline-block;
+            text-transform: uppercase;
+        }
+        .badge.sale { background: #e7f3ff; color: #007bff; }
+        .badge.payment { background: #e6ffed; color: #28a745; }
+        .badge.return { background: #ffeef0; color: #d73a49; }
+
+        /* Dark mode compatibility */
+        @media (prefers-color-scheme: dark) {
+            .transaction-table { background: #121212; color: #eee; border-color: #333; }
+            .transaction-table th { background: #1e1e1e; color: #ccc; border-color: #333; }
+            .transaction-table td { border-color: #333; }
+            .transaction-table tbody tr:hover { background-color: #222; }
+            .transaction-table tfoot tr { background: #1e1e1e; }
+        }
+
+        .export-btn {
+            background: #28a745 !important;
+            color: white !important;
+            padding: 5px 15px !important;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .export-btn:hover { background: #218838 !important; }
+    </style>
+{% endblock %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    {% if change and not is_popup %}
+        <li>
+            <a href="{% url 'export_customer_history' object_id %}" class="export-btn">
+                Export Statement (Excel)
+            </a>
+        </li>
+    {% endif %}
+{% endblock %}
+
+{% block after_related_objects %}
+    {{ block.super }}
+    {% if transaction_history %}
+        <div class="module" style="margin-top: 30px;">
+            <h2 style="background: #79aec8; color: white;">
+                Unified Transaction Statement
+            </h2>
+            <div style="overflow-x: auto; padding: 10px;">
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 15%;">Date</th>
+                            <th style="width: 10%;">Type</th>
+                            <th style="width: 35%;">Description</th>
+                            <th class="numeric-col" style="width: 15%;">Debit (+)</th>
+                            <th class="numeric-col" style="width: 15%;">Credit (-)</th>
+                            <th style="width: 10%;">Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in transaction_history %}
+                            <tr>
+                                <td style="white-space: nowrap;">{{ entry.date|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <span class="badge {% if 'SALE' in entry.type %}sale{% elif 'PAYMENT' in entry.type %}payment{% elif 'RETURN' in entry.type %}return{% endif %}">
+                                        {{ entry.type }}
+                                    </span>
+                                </td>
+                                <td>{{ entry.description }}</td>
+                                <td class="numeric-col" style="color: #d73a49;">
+                                    {% if entry.debit > 0 %}৳{{ entry.debit|floatformat:2 }}{% else %}-{% endif %}
+                                </td>
+                                <td class="numeric-col" style="color: #28a745;">
+                                    {% if entry.credit > 0 %}৳{{ entry.credit|floatformat:2 }}{% else %}-{% endif %}
+                                </td>
+                                <td style="color: #666; font-size: 12px;">{{ entry.note }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" style="text-align: right;">CURRENT TOTAL DUE:</td>
+                            <td colspan="2" class="numeric-col" style="color: #007bff; font-size: 16px;">৳{{ original.total_due|floatformat:2 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

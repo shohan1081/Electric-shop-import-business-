@@ -1,0 +1,22 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_list %}
+
+{% block content %}
+  <div id="content-main">
+    {% if grand_total %}
+      <div class="module" style="margin-bottom: 20px; padding: 20px; border: 1px solid #79aec8; background: #fff;">
+        <h2 style="margin: 0 0 10px 0; color: #666; font-size: 13px; text-transform: uppercase;">
+          Total Inventory Valuation
+        </h2>
+        <div style="font-size: 24px; font-weight: bold; color: #79aec8;">
+          ৳{{ grand_total|floatformat:2 }}
+        </div>
+        <p style="margin: 5px 0 0; font-size: 11px; color: #888;">
+          Current total value of all products in stock based on purchase rates.
+        </p>
+      </div>
+    {% endif %}
+    
+    {{ block.super }}
+  </div>
+{% endblock %}
