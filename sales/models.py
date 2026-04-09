@@ -1,5 +1,6 @@
 from django.db import models
 from inventory.models import Product
+from expenses.models import Account
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
@@ -36,14 +37,14 @@ class Customer(models.Model):
                 'note': f"Unit Price: ৳{sale.selling_price_at_that_time} {sale.condition_notes or ''}"
             })
             # If a sale has an amount paid directly (not via pending cheque)
-            if sale.amount_paid > 0 and sale.payment_method != 'bank_check':
+            if sale.amount_paid > 0 and (sale.payment_method != 'bank_check' or sale.is_conditional):
                 history.append({
                     'date': sale.sold_date,
                     'type': 'PAYMENT (Direct)',
                     'description': f"Initial payment for {sale.product.name}",
                     'debit': 0,
                     'credit': sale.amount_paid, # Customer paid this
-                    'note': ""
+                    'note': f"Account: {sale.account.name if sale.account else 'N/A'}"
                 })
 
         # 2. Add Payments
@@ -58,7 +59,7 @@ class Customer(models.Model):
                 'description': f"Customer Payment (Cheque No: {pay.cheque_number or 'N/A'})",
                 'debit': 0,
                 'credit': pay.amount_paid if pay.status == 'CLEARED' else 0, # Only cleared cheques affect credit
-                'note': pay.note or ""
+                'note': f"Account: {pay.account.name if pay.account else 'N/A'} {pay.note or ''}"
             })
 
         # 3. Add Returns
@@ -81,7 +82,7 @@ class Customer(models.Model):
                     'description': f"Cash Refund for returned {ret.sale.product.name}",
                     'debit': ret.amount_refunded, # Giving money back increases their "due" (offsetting the return credit)
                     'credit': 0,
-                    'note': f"Method: {ret.get_refund_method_display()}"
+                    'note': f"Account: {ret.account.name if ret.account else 'N/A'}"
                 })
 
         # 4. Add Standalone Refunds
@@ -92,7 +93,7 @@ class Customer(models.Model):
                 'description': f"Standalone Cash Refund",
                 'debit': ref.amount if ref.status == 'CLEARED' else 0,
                 'credit': 0,
-                'note': ref.note or f"Method: {ref.get_refund_method_display()}"
+                'note': f"Account: {ref.account.name if ref.account else 'N/A'} {ref.note or ''}"
             })
 
         # Sort by date (newest first)
@@ -108,12 +109,6 @@ class Sale(models.Model):
         ('mobile_banking', 'Mobile Banking'),
     )
 
-    MOBILE_BANKING_TYPES = (
-        ('bkash', 'bKash'),
-        ('nagad', 'Nagad'),
-        ('rocket', 'Rocket'),
-    )
-
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='sales')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity_sold = models.DecimalField(max_digits=10, decimal_places=3)
@@ -123,15 +118,13 @@ class Sale(models.Model):
     amount_paid = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     due_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     
-    # New payment details
+    # New account management
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='sales', null=True, blank=True)
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='cash')
     
     # Conditional Sale fields
     is_conditional = models.BooleanField(default=False, verbose_name="Conditional Sale (Payment on Delivery)")
     condition_notes = models.CharField(max_length=255, blank=True, null=True, help_text="e.g., Courier details, delivery conditions")
-
-    bank_name = models.CharField(max_length=100, blank=True, null=True)
-    mobile_banking_type = models.CharField(max_length=10, choices=MOBILE_BANKING_TYPES, blank=True, null=True)
     
     sold_date = models.DateTimeField(auto_now_add=True)
 
@@ -145,53 +138,92 @@ class Sale(models.Model):
         if self.is_conditional:
             if self.amount_paid > 0:
                 raise ValidationError({'amount_paid': "For conditional sales (payment on delivery), the initial amount paid must be 0."})
-        elif self.payment_method == 'bank_check' and self.amount_paid > 0:
-            raise ValidationError({'amount_paid': "For cheque payments, the amount paid on sale should be 0. A separate Payment record will manage the cheque clearance."})
-
-        # Specific validations for other payment methods
-        if self.amount_paid > 0 and self.payment_method != 'bank_check': # Only validate if amount paid and not a cheque
-            if self.payment_method == 'bank_transaction' and not self.bank_name:
-                raise ValidationError({'bank_name': "Bank name is required for bank transactions."})
-            if self.payment_method == 'mobile_banking' and not self.mobile_banking_type:
-                raise ValidationError({'mobile_banking_type': "Please select a mobile banking type (bKash/Nagad/Rocket)."})
+        
+        if self.amount_paid > 0 and not self.account and self.payment_method != 'bank_check':
+            raise ValidationError({'account': "Please select the account where the payment was received."})
 
     def save(self, *args, **kwargs):
-        # Calculate totals before full_clean so validation passes
-        if self.quantity_sold is not None and self.selling_price_at_that_time is not None:
-            from decimal import Decimal, ROUND_HALF_UP
-            fee = self.transport_fee or Decimal('0.00')
-            self.total_price = ((self.quantity_sold * self.selling_price_at_that_time) + fee).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-            self.due_amount = (self.total_price - self.amount_paid).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-
-        self.full_clean() # Call full_clean to run model validation before saving
+        # Calculate totals
+        from decimal import Decimal, ROUND_HALF_UP
+        fee = self.transport_fee or Decimal('0.00')
+        self.total_price = ((self.quantity_sold * self.selling_price_at_that_time) + fee).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         
-        # Update customer's global due
-        customer = self.customer
-        if self.pk:
-            # If updating, we need the old due to calculate the difference
-            original_sale = Sale.objects.get(pk=self.pk)
-            old_due = original_sale.due_amount
-            customer.total_due += (self.due_amount - old_due)
+        # If bank check, the FULL total_price is due until cleared.
+        # Otherwise, only the remaining amount is due.
+        if self.payment_method == 'bank_check':
+            actual_due_impact = self.total_price
         else:
-            # If new sale, just add the due
-            customer.total_due += self.due_amount
-            # And handle stock
+            actual_due_impact = self.total_price - self.amount_paid
+
+        self.due_amount = (self.total_price - self.amount_paid).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.full_clean()
+        
+        is_new = not self.pk
+        customer = self.customer
+
+        if is_new:
+            # Add the calculated impact to customer due
+            customer.total_due += actual_due_impact
+            # Handle stock
             self.product.quantity -= self.quantity_sold
             self.product.save()
+        else:
+            # If updating, we need to carefully adjust by the difference in impact
+            original = Sale.objects.get(pk=self.pk)
+            
+            if original.payment_method == 'bank_check':
+                old_impact = original.total_price
+            else:
+                old_impact = original.total_price - original.amount_paid
+                
+            customer.total_due += (actual_due_impact - old_impact)
             
         customer.save()
         super().save(*args, **kwargs)
+
+        # AUTOMATION: Create/Update Payment Record
+        if self.amount_paid > 0:
+            status = 'PENDING' if self.payment_method == 'bank_check' else 'CLEARED'
+            
+            payment = Payment.objects.filter(sale=self).first()
+            
+            if not payment:
+                payment = Payment(
+                    sale=self,
+                    customer=self.customer,
+                    amount_paid=self.amount_paid,
+                    account=self.account,
+                    payment_method=self.payment_method,
+                    status=status
+                )
+            else:
+                payment.amount_paid = self.amount_paid
+                payment.account = self.account
+                payment.payment_method = self.payment_method
+            
+            # Use a special flag to tell Payment not to double-count the initial sale payment
+            payment._from_sale_automation = True
+            payment.save()
 
     def delete(self, *args, **kwargs):
         # Revert stock
         self.product.quantity += self.quantity_sold
         self.product.save()
         
-        # Revert customer due
+        # Revert customer due based on what was actually applied
         customer = self.customer
-        customer.total_due -= self.due_amount
+        if self.payment_method == 'bank_check':
+            # Check if the payment was cleared. If so, only total_price - amount_paid was in total_due.
+            payment = Payment.objects.filter(sale=self).first()
+            if payment and payment.status == 'CLEARED':
+                customer.total_due -= (self.total_price - self.amount_paid)
+            else:
+                customer.total_due -= self.total_price
+        else:
+            customer.total_due -= (self.total_price - self.amount_paid)
+            
         customer.save()
-        
         super().delete(*args, **kwargs)
 
     def __str__(self):
@@ -206,13 +238,13 @@ class Payment(models.Model):
     )
 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='payments')
+    sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='sale_payments', null=True, blank=True)
     amount_paid = models.DecimalField(max_digits=14, decimal_places=2)
     payment_date = models.DateTimeField(auto_now_add=True)
     
-    # New payment details
+    # New account management
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='payments', null=True, blank=True)
     payment_method = models.CharField(max_length=20, choices=Sale.PAYMENT_METHODS, default='cash')
-    bank_name = models.CharField(max_length=100, blank=True, null=True)
-    mobile_banking_type = models.CharField(max_length=10, choices=Sale.MOBILE_BANKING_TYPES, blank=True, null=True)
     
     # Cheque specific fields
     status = models.CharField(max_length=10, choices=PAYMENT_STATUS_CHOICES, default='PENDING')
@@ -225,10 +257,8 @@ class Payment(models.Model):
     def clean(self):
         # Cheque specific validations
         if self.payment_method == 'bank_check':
-            # cheque_number is now optional
             if not self.cheque_date:
                 raise ValidationError({'cheque_date': "Cheque date is required for cheque payments."})
-            # For cheque payments, status can be PENDING, CLEARED, or BOUNCED
         else: # Not a bank_check payment
             # Force CLEARED status and set clearance date for all non-cheque payments
             self.status = 'CLEARED'
@@ -239,12 +269,10 @@ class Payment(models.Model):
             if self.cheque_number or self.cheque_date:
                 raise ValidationError("Cheque-specific fields (number/date) should only be set for cheque payments.")
 
-        # Specific validations for other payment methods
-        if self.amount_paid > 0:
-            if self.payment_method == 'bank_transaction' and not self.bank_name:
-                raise ValidationError({'bank_name': "Bank name is required for bank transactions."})
-            if self.payment_method == 'mobile_banking' and not self.mobile_banking_type:
-                raise ValidationError({'mobile_banking_type': "Please select a mobile banking type (bKash/Nagad/Rocket)."})
+        if self.amount_paid > 0 and not self.account:
+            # Allow account to be null ONLY for pending cheques
+            if not (self.payment_method == 'bank_check' and self.status == 'PENDING'):
+                raise ValidationError({'account': "Please select the account where the payment was received."})
 
     def save(self, *args, **kwargs):
         self.full_clean() # Call full_clean to run model validation before saving
@@ -320,9 +348,8 @@ class ProductReturn(models.Model):
     
     # Refund fields
     amount_refunded = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='product_returns', null=True, blank=True)
     refund_method = models.CharField(max_length=20, choices=Sale.PAYMENT_METHODS, default='cash')
-    bank_name = models.CharField(max_length=100, blank=True, null=True)
-    mobile_banking_type = models.CharField(max_length=10, choices=Sale.MOBILE_BANKING_TYPES, blank=True, null=True)
 
     def clean(self):
         if self.sale.product.unit_of_measure == 'unit' and self.quantity_returned is not None and self.quantity_returned % 1 != 0:
@@ -333,11 +360,8 @@ class ProductReturn(models.Model):
             raise ValidationError(f"Cannot return more than purchased. Total purchased: {self.sale.quantity_sold}, Already returned: {already_returned}")
         
         # Validate refund fields
-        if self.amount_refunded > 0:
-            if self.refund_method == 'bank_transaction' and not self.bank_name:
-                raise ValidationError({'bank_name': "Bank name is required for bank transaction refunds."})
-            if self.refund_method == 'mobile_banking' and not self.mobile_banking_type:
-                raise ValidationError({'mobile_banking_type': "Please select a mobile banking type for the refund."})
+        if self.amount_refunded > 0 and not self.account:
+            raise ValidationError({'account': "Please select the account from which the refund was paid."})
 
     def save(self, *args, **kwargs):
         self.full_clean() # Call full_clean to run model validation before saving
@@ -396,9 +420,8 @@ class Refund(models.Model):
     refund_date = models.DateTimeField(auto_now_add=True)
     
     # Refund details
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='standalone_refunds', null=True, blank=True)
     refund_method = models.CharField(max_length=20, choices=Sale.PAYMENT_METHODS, default='cash')
-    bank_name = models.CharField(max_length=100, blank=True, null=True)
-    mobile_banking_type = models.CharField(max_length=10, choices=Sale.MOBILE_BANKING_TYPES, blank=True, null=True)
     
     # Cheque specific fields (if company gives refund via cheque)
     status = models.CharField(max_length=10, choices=Payment.PAYMENT_STATUS_CHOICES, default='CLEARED')
@@ -420,11 +443,8 @@ class Refund(models.Model):
             if not self.cheque_date:
                 raise ValidationError({'cheque_date': "Cheque date is required for cheque refunds."})
 
-        if self.amount > 0:
-            if self.refund_method == 'bank_transaction' and not self.bank_name:
-                raise ValidationError({'bank_name': "Bank name is required for bank transactions."})
-            if self.refund_method == 'mobile_banking' and not self.mobile_banking_type:
-                raise ValidationError({'mobile_banking_type': "Please select a mobile banking type for the refund."})
+        if self.amount > 0 and not self.account:
+            raise ValidationError({'account': "Please select the account from which the refund was paid."})
 
     def save(self, *args, **kwargs):
         self.full_clean()

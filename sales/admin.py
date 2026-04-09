@@ -14,14 +14,14 @@ from datetime import datetime, time
 class PaymentInline(TabularInline):
     model = Payment
     extra = 1
-    fields = ['amount_paid', 'payment_method', 'status', 'cheque_number', 'cheque_date', 'clearance_date', 'bank_name', 'mobile_banking_type', 'note', 'payment_date']
+    fields = ['amount_paid', 'account', 'payment_method', 'status', 'cheque_number', 'cheque_date', 'clearance_date', 'note', 'payment_date']
     readonly_fields = ('payment_date', 'clearance_date', 'status') # Status is changed via actions, not directly editable here
 
 class CustomerProductReturnInline(TabularInline):
     model = ProductReturn
     extra = 0
-    fields = ['get_product_name', 'quantity_returned', 'amount_refunded', 'refund_method', 'reason', 'return_date']
-    readonly_fields = ('get_product_name', 'quantity_returned', 'amount_refunded', 'refund_method', 'reason', 'return_date')
+    fields = ['get_product_name', 'quantity_returned', 'amount_refunded', 'account', 'reason', 'return_date']
+    readonly_fields = ('get_product_name', 'quantity_returned', 'amount_refunded', 'account', 'reason', 'return_date')
     can_delete = False
     verbose_name = "Product Return History"
     verbose_name_plural = "Product Returns History"
@@ -38,7 +38,7 @@ class CustomerProductReturnInline(TabularInline):
 class ProductReturnInline(TabularInline):
     model = ProductReturn
     extra = 1
-    fields = ['get_customer_name', 'quantity_returned', 'amount_refunded', 'refund_method', 'bank_name', 'mobile_banking_type', 'reason']
+    fields = ['get_customer_name', 'quantity_returned', 'amount_refunded', 'account', 'reason']
     readonly_fields = ('get_customer_name',)
     
     def get_customer_name(self, obj):
@@ -57,7 +57,7 @@ class SaleInline(TabularInline):
 class RefundInline(TabularInline):
     model = Refund
     extra = 1
-    fields = ['amount', 'refund_method', 'status', 'cheque_number', 'cheque_date', 'clearance_date', 'bank_name', 'mobile_banking_type', 'note', 'refund_date']
+    fields = ['amount', 'account', 'refund_method', 'status', 'cheque_number', 'cheque_date', 'clearance_date', 'note', 'refund_date']
     readonly_fields = ('refund_date', 'clearance_date')
 
 class CustomerAdmin(ModelAdmin):
@@ -75,7 +75,7 @@ class CustomerAdmin(ModelAdmin):
         return super().render_change_form(request, context, add, change, form_url, obj)
 
     class Media:
-        js = ('admin/js/auto_search.js', 'admin/js/payment_logic.js')
+        js = ('admin/js/auto_search.js',)
 
 class DefaultTodayFilter(admin.SimpleListFilter):
     title = 'date filter'
@@ -134,9 +134,9 @@ class DefaultTodayFilter(admin.SimpleListFilter):
         return [self.parameter_name, 'sold_date__range__gte', 'sold_date__range__lte']
 
 class SaleAdmin(ModelAdmin):
-    list_display = ('customer', 'product', 'quantity_sold', 'total_price', 'amount_paid', 'transport_fee', 'is_conditional', 'due_amount', 'sold_date')
-    list_filter = (DefaultTodayFilter, 'is_conditional', 'payment_method', 'customer', 'product')
-    search_fields = ('customer__name', 'product__name', 'bank_name', 'condition_notes')
+    list_display = ('customer', 'product', 'quantity_sold', 'total_price', 'amount_paid', 'payment_method', 'account', 'is_conditional', 'due_amount', 'sold_date')
+    list_filter = (DefaultTodayFilter, 'is_conditional', 'payment_method', 'customer', 'product', 'account')
+    search_fields = ('customer__name', 'product__name', 'condition_notes')
     formfield_overrides = {
         models.ForeignKey: {'widget': UnfoldAdminSelect2Widget},
     }
@@ -152,27 +152,26 @@ class SaleAdmin(ModelAdmin):
             'customer', 'product', 'quantity_sold', 'selling_price_at_that_time', 
             'transport_fee', 'total_price', 'amount_paid', 
             'is_conditional', 'condition_notes',
-            'payment_method', 'bank_name', 'mobile_banking_type',
+            'payment_method', 'account',
             'due_amount', 'sold_date'
         ]
         return ((None, {'fields': fields}),)
 
 class PaymentAdmin(ModelAdmin):
-    list_display = ('customer', 'amount_paid', 'payment_method', 'status_display', 'cheque_number', 'cheque_date', 'clearance_date', 'payment_date')
-    list_filter = ('payment_method', 'status', 'payment_date')
-    search_fields = ('customer__name', 'bank_name', 'cheque_number')
-    autocomplete_fields = ('customer',)
+    list_display = ('customer', 'amount_paid', 'account', 'payment_method', 'status_display', 'cheque_number', 'cheque_date', 'clearance_date', 'payment_date')
+    list_filter = ('payment_method', 'status', 'payment_date', 'account')
+    search_fields = ('customer__name', 'cheque_number', 'account__name')
+    autocomplete_fields = ('customer', 'account')
     readonly_fields = ('payment_date', 'clearance_date')
     actions = [export_to_excel, 'mark_cheque_cleared', 'mark_cheque_bounced']
 
     class Media:
-        js = ('admin/js/auto_search.js', 'admin/js/payment_logic.js')
+        js = ('admin/js/auto_search.js',)
 
     def get_fieldsets(self, request, obj=None):
         fields = [
-            'customer', 'amount_paid', 
+            'customer', 'amount_paid', 'account',
             'payment_method', 'status', 'cheque_number', 'cheque_date', 'clearance_date',
-            'bank_name', 'mobile_banking_type',
             'payment_date', 'note'
         ]
         return ((None, {'fields': fields}),)
@@ -223,18 +222,18 @@ class PaymentAdmin(ModelAdmin):
 
 
 class ProductReturnAdmin(ModelAdmin):
-    list_display = ('sale', 'quantity_returned', 'amount_refunded', 'refund_method', 'return_date')
-    search_fields = ('sale__customer__name', 'sale__product__name')
+    list_display = ('sale', 'quantity_returned', 'amount_refunded', 'account', 'refund_method', 'return_date')
+    search_fields = ('sale__customer__name', 'sale__product__name', 'account__name')
     raw_id_fields = ('sale',)
     actions = [export_to_excel]
 
     class Media:
-        js = ('admin/js/auto_search.js', 'admin/js/payment_logic.js')
+        js = ('admin/js/auto_search.js',)
 
     def get_fieldsets(self, request, obj=None):
         fields = [
             'sale', 'quantity_returned', 'reason',
-            'amount_refunded', 'refund_method', 'bank_name', 'mobile_banking_type'
+            'amount_refunded', 'account', 'refund_method'
         ]
         return ((None, {'fields': fields}),)
 
@@ -249,15 +248,15 @@ class ProductReturnAdmin(ModelAdmin):
         return super().has_change_permission(request, obj)
 
 class RefundAdmin(ModelAdmin):
-    list_display = ('customer', 'amount', 'refund_method', 'status', 'refund_date')
-    list_filter = ('refund_method', 'status', 'refund_date')
-    search_fields = ('customer__name', 'bank_name', 'cheque_number')
-    autocomplete_fields = ('customer',)
+    list_display = ('customer', 'amount', 'account', 'refund_method', 'status', 'refund_date')
+    list_filter = ('refund_method', 'status', 'refund_date', 'account')
+    search_fields = ('customer__name', 'account__name', 'cheque_number')
+    autocomplete_fields = ('customer', 'account')
     readonly_fields = ('refund_date', 'clearance_date')
     actions = [export_to_excel, 'mark_refund_cleared', 'mark_refund_bounced']
 
     class Media:
-        js = ('admin/js/auto_search.js', 'admin/js/payment_logic.js')
+        js = ('admin/js/auto_search.js',)
 
     def mark_refund_cleared(self, request, queryset):
         updated_count = 0
