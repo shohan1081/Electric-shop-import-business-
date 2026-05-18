@@ -96,8 +96,8 @@ class Customer(models.Model):
                 'note': f"Account: {ref.account.name if ref.account else 'N/A'} {ref.note or ''}"
             })
 
-        # Sort by date (newest first)
-        history.sort(key=lambda x: x['date'], reverse=True)
+        # Sort by date (oldest first)
+        history.sort(key=lambda x: x['date'], reverse=False)
         return history
 
 
