@@ -11,7 +11,14 @@ class Customer(models.Model):
     phone = models.CharField(max_length=20, unique=True)
     email = models.EmailField(blank=True, null=True)
     total_due = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    opening_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            # Capture the initial due amount as opening balance
+            self.opening_balance = self.total_due
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.name} (Due: ৳{self.total_due})"
@@ -22,6 +29,17 @@ class Customer(models.Model):
         """
         history = []
         
+        # 0. Add Opening Balance (if any)
+        if self.opening_balance != 0:
+            history.append({
+                'date': self.created_at,
+                'type': 'OPENING BALANCE',
+                'description': "Initial balance at creation",
+                'debit': self.opening_balance if self.opening_balance > 0 else 0,
+                'credit': abs(self.opening_balance) if self.opening_balance < 0 else 0,
+                'note': "System migration / Initial Setup"
+            })
+
         # 1. Add Sales
         for sale in self.sales.all():
             sale_type = 'SALE'
@@ -34,29 +52,24 @@ class Customer(models.Model):
                 'description': f"Sold: {sale.product.name} ({sale.quantity_sold} units)",
                 'debit': sale.total_price,  # Customer owes this
                 'credit': 0,
-                'note': f"Unit Price: ৳{sale.selling_price_at_that_time} {sale.condition_notes or ''}"
+                'note': f"Unit Price: ৳{sale.selling_price_at_that_time} | Profit: ৳{sale.profit} {sale.condition_notes or ''}"
             })
-            # If a sale has an amount paid directly (not via pending cheque)
-            if sale.amount_paid > 0 and (sale.payment_method != 'bank_check' or sale.is_conditional):
-                history.append({
-                    'date': sale.sold_date,
-                    'type': 'PAYMENT (Direct)',
-                    'description': f"Initial payment for {sale.product.name}",
-                    'debit': 0,
-                    'credit': sale.amount_paid, # Customer paid this
-                    'note': f"Account: {sale.account.name if sale.account else 'N/A'}"
-                })
 
         # 2. Add Payments
         for pay in self.payments.all():
             payment_type = 'PAYMENT'
+            description = f"Customer Payment (Cheque No: {pay.cheque_number or 'N/A'})"
+            
             if pay.payment_method == 'bank_check':
                 payment_type = f"CHEQUE ({pay.get_status_display()})"
             
+            if pay.sale:
+                description = f"Payment for {pay.sale.product.name}"
+
             history.append({
                 'date': pay.payment_date,
                 'type': payment_type,
-                'description': f"Customer Payment (Cheque No: {pay.cheque_number or 'N/A'})",
+                'description': description,
                 'debit': 0,
                 'credit': pay.amount_paid if pay.status == 'CLEARED' else 0, # Only cleared cheques affect credit
                 'note': f"Account: {pay.account.name if pay.account else 'N/A'} {pay.note or ''}"
@@ -112,9 +125,11 @@ class Sale(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='sales')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity_sold = models.DecimalField(max_digits=10, decimal_places=3)
+    purchase_price_at_that_time = models.DecimalField(max_digits=12, decimal_places=2, editable=False, default=0)
     selling_price_at_that_time = models.DecimalField(max_digits=12, decimal_places=2)
     transport_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, null=True)
     total_price = models.DecimalField(max_digits=14, decimal_places=2)
+    profit = models.DecimalField(max_digits=14, decimal_places=2, default=0, editable=False)
     amount_paid = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     due_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     
@@ -148,12 +163,9 @@ class Sale(models.Model):
         fee = self.transport_fee or Decimal('0.00')
         self.total_price = ((self.quantity_sold * self.selling_price_at_that_time) + fee).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         
-        # If bank check, the FULL total_price is due until cleared.
-        # Otherwise, only the remaining amount is due.
-        if self.payment_method == 'bank_check':
-            actual_due_impact = self.total_price
-        else:
-            actual_due_impact = self.total_price - self.amount_paid
+        # We always add the FULL total_price to the debt.
+        # The automated Payment object created below will handle the reduction of amount_paid.
+        actual_due_impact = self.total_price
 
         self.due_amount = (self.total_price - self.amount_paid).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
@@ -163,23 +175,21 @@ class Sale(models.Model):
         customer = self.customer
 
         if is_new:
-            # Add the calculated impact to customer due
-            customer.total_due += actual_due_impact
+            # Atomic update to avoid stale data
+            from django.db.models import F
+            Customer.objects.filter(pk=customer.pk).update(total_due=F('total_due') + self.total_price)
             # Handle stock
             self.product.quantity -= self.quantity_sold
             self.product.save()
         else:
-            # If updating, we need to carefully adjust by the difference in impact
+            # Atomic update for changes
+            from django.db.models import F
             original = Sale.objects.get(pk=self.pk)
+            diff = self.total_price - original.total_price
+            if diff != 0:
+                Customer.objects.filter(pk=customer.pk).update(total_due=F('total_due') + diff)
             
-            if original.payment_method == 'bank_check':
-                old_impact = original.total_price
-            else:
-                old_impact = original.total_price - original.amount_paid
-                
-            customer.total_due += (actual_due_impact - old_impact)
-            
-        customer.save()
+        customer.refresh_from_db()
         super().save(*args, **kwargs)
 
         # AUTOMATION: Create/Update Payment Record
@@ -202,8 +212,6 @@ class Sale(models.Model):
                 payment.account = self.account
                 payment.payment_method = self.payment_method
             
-            # Use a special flag to tell Payment not to double-count the initial sale payment
-            payment._from_sale_automation = True
             payment.save()
 
     def delete(self, *args, **kwargs):
@@ -211,19 +219,13 @@ class Sale(models.Model):
         self.product.quantity += self.quantity_sold
         self.product.save()
         
-        # Revert customer due based on what was actually applied
+        # Subtract the full total_price from customer due.
+        # The linked Payment (if any) will be deleted via CASCADE and its
+        # delete() method will handle reverting the amount_paid.
         customer = self.customer
-        if self.payment_method == 'bank_check':
-            # Check if the payment was cleared. If so, only total_price - amount_paid was in total_due.
-            payment = Payment.objects.filter(sale=self).first()
-            if payment and payment.status == 'CLEARED':
-                customer.total_due -= (self.total_price - self.amount_paid)
-            else:
-                customer.total_due -= self.total_price
-        else:
-            customer.total_due -= (self.total_price - self.amount_paid)
-            
+        customer.total_due -= self.total_price
         customer.save()
+        
         super().delete(*args, **kwargs)
 
     def __str__(self):
@@ -310,16 +312,17 @@ class Payment(models.Model):
             if not self.pk: # New non-cheque payment
                 self.status = 'CLEARED'
                 self.clearance_date = timezone.now()
-                customer = self.customer
-                customer.total_due -= self.amount_paid
-                customer.save()
+                from django.db.models import F
+                Customer.objects.filter(pk=self.customer.pk).update(total_due=F('total_due') - self.amount_paid)
+                self.customer.refresh_from_db()
             else: # Existing non-cheque payment
                 # If updating a non-cheque payment, adjust due by difference
                 original_payment = Payment.objects.get(pk=self.pk)
                 if original_payment.amount_paid != self.amount_paid:
-                    customer = self.customer
-                    customer.total_due += (original_payment.amount_paid - self.amount_paid)
-                    customer.save()
+                    from django.db.models import F
+                    diff = original_payment.amount_paid - self.amount_paid
+                    Customer.objects.filter(pk=self.customer.pk).update(total_due=F('total_due') + diff)
+                    self.customer.refresh_from_db()
                 # Ensure status remains CLEARED and clearance_date is set if it's not already
                 self.status = 'CLEARED'
                 if not self.clearance_date:
