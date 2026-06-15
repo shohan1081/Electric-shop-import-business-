@@ -204,6 +204,17 @@ UNFOLD = {
                     },
                 ],
             },
+            {
+                "title": "System Tools",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Download Data Backup",
+                        "icon": "download_for_offline",
+                        "link": "/admin/backup/download/",
+                    },
+                ],
+            },
         ],
     },
 }
