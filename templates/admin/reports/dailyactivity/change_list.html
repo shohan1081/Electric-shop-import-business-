@@ -7,22 +7,33 @@
 
 {% block result_list %}
     {% if report_summaries %}
-    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 180px; padding: 15px; background: #fff; border: 1px solid #ddd; border-top: 4px solid #28a745;">
-            <h3 style="margin: 0; color: #666; font-size: 11px; text-transform: uppercase;">Total Sales Volume</h3>
-            <p style="margin: 10px 0 0; font-size: 1.2rem; font-weight: bold; color: #333;">৳{{ report_summaries.total_sales_volume|floatformat:2 }}</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Sales Volume Card -->
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
+            <div class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Sales Volume</div>
+            <div class="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">৳{{ report_summaries.total_sales_volume|floatformat:2 }}</div>
+            <div class="mt-2 w-full h-1 bg-emerald-500 rounded-full"></div>
         </div>
-        <div style="flex: 1; min-width: 180px; padding: 15px; background: #fff; border: 1px solid #ddd; border-top: 4px solid #17a2b8;">
-            <h3 style="margin: 0; color: #666; font-size: 11px; text-transform: uppercase;">Cash Received</h3>
-            <p style="margin: 10px 0 0; font-size: 1.2rem; font-weight: bold; color: #333;">৳{{ report_summaries.total_cash_received|floatformat:2 }}</p>
+        
+        <!-- Cash Received Card -->
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
+            <div class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Cash Received</div>
+            <div class="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">৳{{ report_summaries.total_cash_received|floatformat:2 }}</div>
+            <div class="mt-2 w-full h-1 bg-cyan-500 rounded-full"></div>
         </div>
-        <div style="flex: 1; min-width: 180px; padding: 15px; background: #fff; border: 1px solid #ddd; border-top: 4px solid #dc3545;">
-            <h3 style="margin: 0; color: #666; font-size: 11px; text-transform: uppercase;">Total Expenses</h3>
-            <p style="margin: 10px 0 0; font-size: 1.2rem; font-weight: bold; color: #333;">৳{{ report_summaries.total_expenses|floatformat:2 }}</p>
+
+        <!-- Total Expenses Card -->
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
+            <div class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Expenses</div>
+            <div class="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">৳{{ report_summaries.total_expenses|floatformat:2 }}</div>
+            <div class="mt-2 w-full h-1 bg-rose-500 rounded-full"></div>
         </div>
-        <div style="flex: 1; min-width: 180px; padding: 15px; background: #fff; border: 1px solid #ddd; border-top: 4px solid #79aec8;">
-            <h3 style="margin: 0; color: #666; font-size: 11px; text-transform: uppercase;">Estimated Profit</h3>
-            <p style="margin: 10px 0 0; font-size: 1.2rem; font-weight: bold; color: #79aec8;">৳{{ report_summaries.net_profit|floatformat:2 }}</p>
+
+        <!-- Estimated Profit Card -->
+        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
+            <div class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Estimated Profit</div>
+            <div class="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">৳{{ report_summaries.net_profit|floatformat:2 }}</div>
+            <div class="mt-2 w-full h-1 bg-sky-500 rounded-full"></div>
         </div>
     </div>
     {% endif %}

@@ -32,10 +32,12 @@ class DateRangeFilter(admin.SimpleListFilter):
             return queryset.filter(action_time__year=today.year)
         return queryset
 
+from unfold.admin import ModelAdmin
+
 @admin.register(DailyActivity, site=custom_admin_site)
-class DailyActivityAdmin(admin.ModelAdmin):
-    list_display = ('action_time', 'user', 'content_type', 'object_repr', 'action_flag_display', 'change_message')
-    list_filter = (DateRangeFilter, 'user', 'content_type') # Removed action_flag filter as it's now fixed to ADDITION
+class DailyActivityAdmin(ModelAdmin):
+    list_display = ('action_time', 'user', 'action_type', 'action_flag_display', 'activity_description')
+    list_filter = (DateRangeFilter, 'user', 'content_type')
     search_fields = ('object_repr', 'change_message')
     date_hierarchy = 'action_time'
     change_list_template = 'admin/reports/dailyactivity/change_list.html'
@@ -44,10 +46,7 @@ class DailyActivityAdmin(admin.ModelAdmin):
         from django.contrib.contenttypes.models import ContentType
         qs = super().get_queryset(request)
         
-        # 1. Only show ADDITIONS
-        qs = qs.filter(action_flag=admin.models.ADDITION)
-        
-        # 2. Only show main operation models
+        # Only show main operation models
         main_models = [
             ('inventory', 'product'),
             ('sales', 'sale'),
@@ -58,6 +57,7 @@ class DailyActivityAdmin(admin.ModelAdmin):
             ('expenses', 'salarytransaction'),
             ('expenses', 'accounttransfer'),
             ('expenses', 'productorder'),
+            ('expenses', 'account'),
         ]
         
         ct_ids = []
@@ -74,13 +74,48 @@ class DailyActivityAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None): return False
     def has_delete_permission(self, request, obj=None): return False
 
+    def action_type(self, obj):
+        if not obj.content_type:
+            return "General"
+        return obj.content_type.name.title()
+    action_type.short_description = "Category"
+
     def action_flag_display(self, obj):
         from django.utils.html import format_html
-        if obj.is_addition(): return format_html('<b style="color:green;">{}</b>', 'Addition')
-        if obj.is_change(): return format_html('<b style="color:orange;">{}</b>', 'Change')
-        if obj.is_deletion(): return format_html('<b style="color:red;">{}</b>', 'Deletion')
+        if obj.is_addition():
+            return format_html(
+                '<span class="px-2 py-1 text-xs font-semibold rounded bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50">{}</span>',
+                'ADD'
+            )
+        if obj.is_change():
+            return format_html(
+                '<span class="px-2 py-1 text-xs font-semibold rounded bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/50">{}</span>',
+                'EDIT'
+            )
+        if obj.is_deletion():
+            return format_html(
+                '<span class="px-2 py-1 text-xs font-semibold rounded bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50">{}</span>',
+                'DELETE'
+            )
         return "Unknown"
     action_flag_display.short_description = "Action"
+
+    def activity_description(self, obj):
+        model_name = obj.content_type.name.title() if obj.content_type else "Item"
+        obj_repr = obj.object_repr
+        
+        if obj.is_addition():
+            return f"Added new {model_name}: {obj_repr}"
+        elif obj.is_deletion():
+            return f"Deleted {model_name}: {obj_repr}"
+        elif obj.is_change():
+            msg = obj.get_change_message()
+            if not msg or msg == "No fields changed.":
+                return f"Modified {model_name}: {obj_repr}"
+            return f"Modified {model_name}: {obj_repr} ({msg})"
+        return f"Action on {model_name}: {obj_repr}"
+    activity_description.short_description = "Activity Details"
+
 
     def changelist_view(self, request, extra_context=None):
         # 1. Determine the date range based on filters
