@@ -99,7 +99,6 @@ class DailyActivityAdmin(admin.ModelAdmin):
         # Sales
         sales = Sale.objects.filter(sold_date__date__gte=start_date)
         total_sales_volume = sales.aggregate(Sum('total_price'))['total_price__sum'] or 0
-        direct_cash = sales.exclude(payment_method='bank_check').aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
         
         # Payments
         payments_cleared = Payment.objects.filter(payment_date__date__gte=start_date, status='CLEARED').aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
@@ -116,7 +115,7 @@ class DailyActivityAdmin(admin.ModelAdmin):
         salaries = SalaryTransaction.objects.filter(date__gte=start_date, transaction_type__in=['PAYMENT', 'ADVANCE']).aggregate(Sum('amount'))['amount__sum'] or 0
         orders = ProductOrder.objects.filter(order_date__date__gte=start_date).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
 
-        total_cash_received = direct_cash + payments_cleared - refunds - return_refunds
+        total_cash_received = payments_cleared - refunds - return_refunds
         total_expenses = daily_expenses + salaries + orders
         
         # Simplified Profit Logic (Revenue - Returns - COGS - Expenses)

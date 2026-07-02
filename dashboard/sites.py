@@ -58,12 +58,11 @@ class CustomAdminSite(UnfoldAdminSite):
         net_sales_volume = total_sales_volume - return_revenue_loss
         
         # Cash Flow in Period
-        direct_revenue = Sale.objects.filter(sold_date__gte=start_date, is_conditional=False).exclude(payment_method='bank_check').aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
         cleared_payments = Payment.objects.filter(payment_date__gte=start_date, status='CLEARED').aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
         refunds_out = Refund.objects.filter(refund_date__gte=start_date, status='CLEARED').aggregate(Sum('amount'))['amount__sum'] or 0
         return_refunds_out = ProductReturn.objects.filter(return_date__gte=start_date).aggregate(Sum('amount_refunded'))['amount_refunded__sum'] or 0
         
-        total_cash_received = direct_revenue + cleared_payments - refunds_out - return_refunds_out
+        total_cash_received = cleared_payments - refunds_out - return_refunds_out
         
         # Expenses in Period
         daily_expenses = ExpenseItem.objects.filter(daily_expense__date__gte=start_date).aggregate(Sum('amount'))['amount__sum'] or 0
@@ -86,7 +85,6 @@ class CustomAdminSite(UnfoldAdminSite):
 
         for acc in accounts:
             # Money In
-            sales_in = Sale.objects.filter(account=acc, is_conditional=False).exclude(payment_method='bank_check').aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
             payments_in = Payment.objects.filter(account=acc, status='CLEARED').aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
             transfers_in = AccountTransfer.objects.filter(to_account=acc).aggregate(Sum('amount'))['amount__sum'] or 0
             
@@ -98,7 +96,7 @@ class CustomAdminSite(UnfoldAdminSite):
             refunds_out_all = Refund.objects.filter(account=acc, status='CLEARED').aggregate(Sum('amount'))['amount__sum'] or 0
             transfers_out = AccountTransfer.objects.filter(from_account=acc).aggregate(Sum('amount'))['amount__sum'] or 0
 
-            balance = acc.initial_balance + (sales_in + payments_in + transfers_in) - (expenses_out + salaries_out + orders_out + returns_out + refunds_out_all + transfers_out)
+            balance = acc.initial_balance + (payments_in + transfers_in) - (expenses_out + salaries_out + orders_out + returns_out + refunds_out_all + transfers_out)
             
             account_details.append({
                 'name': acc.name,

@@ -1,4 +1,7 @@
 from django.db import models
+from django.db.models import F
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from inventory.models import Product
 from expenses.models import Account
 from django.core.exceptions import ValidationError
@@ -46,13 +49,24 @@ class Customer(models.Model):
             if sale.is_conditional:
                 sale_type = 'CONDITIONAL SALE'
             
+            description = f"Sold: {sale.product.name} ({sale.quantity_sold} units)"
+            if sale.transport_fee and sale.transport_fee > 0:
+                description += f" (Transport: ৳{sale.transport_fee})"
+                
+            note_parts = [f"Unit Price: ৳{sale.selling_price_at_that_time}"]
+            if sale.transport_fee and sale.transport_fee > 0:
+                note_parts.append(f"Transport: ৳{sale.transport_fee}")
+            note_parts.append(f"Profit: ৳{sale.profit}")
+            if sale.condition_notes:
+                note_parts.append(sale.condition_notes)
+            
             history.append({
                 'date': sale.sold_date,
                 'type': sale_type,
-                'description': f"Sold: {sale.product.name} ({sale.quantity_sold} units)",
+                'description': description,
                 'debit': sale.total_price,  # Customer owes this
                 'credit': 0,
-                'note': f"Unit Price: ৳{sale.selling_price_at_that_time} | Profit: ৳{sale.profit} {sale.condition_notes or ''}"
+                'note': " | ".join(note_parts)
             })
 
         # 2. Add Payments
@@ -214,20 +228,6 @@ class Sale(models.Model):
             
             payment.save()
 
-    def delete(self, *args, **kwargs):
-        # Revert stock
-        self.product.quantity += self.quantity_sold
-        self.product.save()
-        
-        # Subtract the full total_price from customer due.
-        # The linked Payment (if any) will be deleted via CASCADE and its
-        # delete() method will handle reverting the amount_paid.
-        customer = self.customer
-        customer.total_due -= self.total_price
-        customer.save()
-        
-        super().delete(*args, **kwargs)
-
     def __str__(self):
         return f"{self.customer.name} - {self.product.name}"
 
@@ -330,14 +330,6 @@ class Payment(models.Model):
 
         super().save(*args, **kwargs)
 
-    def delete(self, *args, **kwargs):
-        # Only cleared payments affect the balance
-        if self.status == 'CLEARED':
-            customer = self.customer
-            customer.total_due += self.amount_paid
-            customer.save()
-        super().delete(*args, **kwargs)
-
     def __str__(self):
         return f"Payment of ৳{self.amount_paid} by {self.customer.name} ({self.get_status_display()})"
 
@@ -392,27 +384,6 @@ class ProductReturn(models.Model):
             self.sale.save()
 
         super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        from decimal import Decimal, ROUND_HALF_UP
-        # 1. Revert Product Stock
-        product = self.sale.product
-        product.quantity -= self.quantity_returned
-        product.save()
-
-        # 2. Revert Customer Due
-        return_value = (self.quantity_returned * self.sale.selling_price_at_that_time).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        net_return_impact = return_value - self.amount_refunded
-        
-        customer = self.customer
-        customer.total_due = (customer.total_due + net_return_impact).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        customer.save()
-        
-        # 3. Revert Sale's due amount
-        self.sale.due_amount = (self.sale.due_amount + net_return_impact).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        self.sale.save()
-
-        super().delete(*args, **kwargs)
 
     def __str__(self):
         return f"Return for {self.sale.product.name} ({self.quantity_returned} units)"
@@ -478,13 +449,43 @@ class Refund(models.Model):
 
         super().save(*args, **kwargs)
 
-    def delete(self, *args, **kwargs):
-        from decimal import Decimal, ROUND_HALF_UP
-        if self.status == 'CLEARED':
-            customer = self.customer
-            customer.total_due = (customer.total_due - self.amount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-            customer.save()
-        super().delete(*args, **kwargs)
-
     def __str__(self):
         return f"Refund of ৳{self.amount} to {self.customer.name}"
+
+
+# ==========================================
+# Database Deletion Signals (Integrity Fix)
+# ==========================================
+
+@receiver(post_delete, sender=Sale)
+def handle_sale_deleted(sender, instance, **kwargs):
+    # 1. Revert product stock
+    Product.objects.filter(pk=instance.product.pk).update(quantity=F('quantity') + instance.quantity_sold)
+    
+    # 2. Revert customer due
+    Customer.objects.filter(pk=instance.customer.pk).update(total_due=F('total_due') - instance.total_price)
+
+
+@receiver(post_delete, sender=Payment)
+def handle_payment_deleted(sender, instance, **kwargs):
+    if instance.status == 'CLEARED':
+        Customer.objects.filter(pk=instance.customer.pk).update(total_due=F('total_due') + instance.amount_paid)
+
+
+@receiver(post_delete, sender=ProductReturn)
+def handle_return_deleted(sender, instance, **kwargs):
+    # 1. Revert product stock
+    Product.objects.filter(pk=instance.sale.product.pk).update(quantity=F('quantity') - instance.quantity_returned)
+    
+    # 2. Revert customer due and sale due
+    return_value = instance.quantity_returned * instance.sale.selling_price_at_that_time
+    net_return_impact = return_value - instance.amount_refunded
+    
+    Customer.objects.filter(pk=instance.customer.pk).update(total_due=F('total_due') + net_return_impact)
+    Sale.objects.filter(pk=instance.sale.pk).update(due_amount=F('due_amount') + net_return_impact)
+
+
+@receiver(post_delete, sender=Refund)
+def handle_refund_deleted(sender, instance, **kwargs):
+    if instance.status == 'CLEARED':
+        Customer.objects.filter(pk=instance.customer.pk).update(total_due=F('total_due') - instance.amount)
