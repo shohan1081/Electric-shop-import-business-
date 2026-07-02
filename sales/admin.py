@@ -75,7 +75,7 @@ class CustomerAdmin(ModelAdmin):
         return super().render_change_form(request, context, add, change, form_url, obj)
 
     class Media:
-        js = ('admin/js/auto_search.js',)
+        js = ('admin/js/auto_search.js?v=3',)
 
 class DefaultTodayFilter(admin.SimpleListFilter):
     title = 'date filter'

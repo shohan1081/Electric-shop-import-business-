@@ -20,7 +20,7 @@ class ProductAdmin(ModelAdmin):
 
     class Media:
         js = (
-            'admin/js/auto_search.js',
+            'admin/js/auto_search.js?v=3',
             'admin/js/inventory_product_admin.js',
         )
 
