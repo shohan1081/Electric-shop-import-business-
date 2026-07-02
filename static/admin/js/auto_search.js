@@ -39,17 +39,8 @@ document.addEventListener('DOMContentLoaded', function() {
             searchBar.value = val;
         }
 
-        searchBar.addEventListener('keyup', function(e) {
-            // Ignore helper and navigation keys
-            const ignoredKeys = [
-                'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 
-                'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 
-                'Home', 'End', 'PageUp', 'PageDown', 'Escape'
-            ];
-            if (ignoredKeys.includes(e.key)) {
-                return;
-            }
-
+        // Use 'input' event for robust text change detection (handles typing, pasting, deleting, etc.)
+        searchBar.addEventListener('input', function() {
             // Only act if the query actually changed
             if (searchBar.value === lastValue) {
                 return;
@@ -62,5 +53,14 @@ document.addEventListener('DOMContentLoaded', function() {
             clearTimeout(timeout);
             timeout = setTimeout(submitSearch, 700); // 700ms debounce
         });
+
+        // Save the final input value right before the page unloads/reloads.
+        // This captures any keystrokes typed during the page reload transition
+        // that wouldn't trigger keyup/input events due to JS suspension.
+        const saveFinalValue = function() {
+            sessionStorage.setItem(storageKey, searchBar.value);
+        };
+        window.addEventListener('beforeunload', saveFinalValue);
+        window.addEventListener('pagehide', saveFinalValue);
     }
 });
