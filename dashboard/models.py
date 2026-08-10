@@ -20,7 +20,10 @@ class ProfitSetting(models.Model):
             return False
         if user.is_superuser:
             return True
-        setting = cls.objects.first()
-        if setting and setting.show_profit_to_coadmins:
-            return True
+        try:
+            setting = cls.objects.first()
+            if setting and setting.show_profit_to_coadmins:
+                return True
+        except Exception:
+            pass
         return False
