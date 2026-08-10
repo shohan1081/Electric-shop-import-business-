@@ -161,8 +161,21 @@ class Sale(models.Model):
         if self.product.unit_of_measure == 'unit' and self.quantity_sold is not None and self.quantity_sold % 1 != 0:
             raise ValidationError({'quantity_sold': f"Quantity sold for '{self.product.name}' (Unit based) must be a whole number."})
 
-        if self.quantity_sold > self.product.quantity:
-            raise ValidationError(f"Not enough stock available for {self.product.name}. Available: {self.product.quantity} {self.product.unit_of_measure}.")
+        # Check stock considering editing existing sale
+        if not self.pk:
+            available_stock = self.product.quantity
+        else:
+            try:
+                original = Sale.objects.get(pk=self.pk)
+                if original.product_id == self.product_id:
+                    available_stock = self.product.quantity + original.quantity_sold
+                else:
+                    available_stock = self.product.quantity
+            except Sale.DoesNotExist:
+                available_stock = self.product.quantity
+
+        if self.quantity_sold > available_stock:
+            raise ValidationError(f"Not enough stock available for {self.product.name}. Available: {available_stock} {self.product.unit_of_measure}.")
         
         if self.is_conditional:
             if self.amount_paid > 0:
@@ -177,9 +190,18 @@ class Sale(models.Model):
         fee = self.transport_fee or Decimal('0.00')
         self.total_price = ((self.quantity_sold * self.selling_price_at_that_time) + fee).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         
-        # We always add the FULL total_price to the debt.
-        # The automated Payment object created below will handle the reduction of amount_paid.
-        actual_due_impact = self.total_price
+        # Snapshot purchase price from product if not set
+        if not self.purchase_price_at_that_time or self.purchase_price_at_that_time == 0:
+            if self.product and self.product.purchase_rate:
+                self.purchase_price_at_that_time = Decimal(str(self.product.purchase_rate))
+            else:
+                self.purchase_price_at_that_time = Decimal('0.00')
+
+        # Calculate Profit: quantity_sold * (selling_price - purchase_price)
+        cost_rate = Decimal(str(self.purchase_price_at_that_time or '0.00'))
+        qty = Decimal(str(self.quantity_sold or '0'))
+        sell_price = Decimal(str(self.selling_price_at_that_time or '0.00'))
+        self.profit = (qty * (sell_price - cost_rate)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
         self.due_amount = (self.total_price - self.amount_paid).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
@@ -202,15 +224,28 @@ class Sale(models.Model):
             diff = self.total_price - original.total_price
             if diff != 0:
                 Customer.objects.filter(pk=customer.pk).update(total_due=F('total_due') + diff)
+
+            # Update stock for quantity changes on edit
+            if original.product_id == self.product_id:
+                qty_diff = self.quantity_sold - original.quantity_sold
+                if qty_diff != 0:
+                    self.product.quantity -= qty_diff
+                    self.product.save()
+            else:
+                # Product changed: revert original product stock and deduct new product stock
+                orig_prod = original.product
+                orig_prod.quantity += original.quantity_sold
+                orig_prod.save()
+                self.product.quantity -= self.quantity_sold
+                self.product.save()
             
         customer.refresh_from_db()
         super().save(*args, **kwargs)
 
-        # AUTOMATION: Create/Update Payment Record
+        # AUTOMATION: Create/Update/Delete Payment Record
+        payment = Payment.objects.filter(sale=self).first()
         if self.amount_paid > 0:
             status = 'PENDING' if self.payment_method == 'bank_check' else 'CLEARED'
-            
-            payment = Payment.objects.filter(sale=self).first()
             
             if not payment:
                 payment = Payment(
@@ -225,8 +260,13 @@ class Sale(models.Model):
                 payment.amount_paid = self.amount_paid
                 payment.account = self.account
                 payment.payment_method = self.payment_method
+                payment.customer = self.customer
             
             payment.save()
+        else:
+            # If amount_paid is set to 0 and a payment exists, remove the payment record
+            if payment:
+                payment.delete()
 
     def __str__(self):
         return f"{self.customer.name} - {self.product.name}"
@@ -361,17 +401,16 @@ class ProductReturn(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean() # Call full_clean to run model validation before saving
         from decimal import Decimal, ROUND_HALF_UP
-        if not self.pk:
-            # 0. Set Customer automatically
-            self.customer = self.sale.customer
+        
+        self.customer = self.sale.customer
 
+        if not self.pk:
             # 1. Update Product Stock
             product = self.sale.product
             product.quantity += self.quantity_returned
             product.save()
 
             # 2. Update Customer Due
-            # Net impact is the return value MINUS what we gave back as cash
             return_value = (self.quantity_returned * self.sale.selling_price_at_that_time).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             net_return_impact = return_value - self.amount_refunded
             
@@ -379,9 +418,33 @@ class ProductReturn(models.Model):
             customer.total_due = (customer.total_due - net_return_impact).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             customer.save()
             
-            # 3. Update the specific Sale's due amount
+            # 3. Update Sale due_amount
             self.sale.due_amount = (self.sale.due_amount - net_return_impact).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
             self.sale.save()
+        else:
+            original = ProductReturn.objects.get(pk=self.pk)
+            qty_diff = self.quantity_returned - original.quantity_returned
+
+            orig_return_value = (original.quantity_returned * original.sale.selling_price_at_that_time).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            orig_net_impact = orig_return_value - original.amount_refunded
+
+            new_return_value = (self.quantity_returned * self.sale.selling_price_at_that_time).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            new_net_impact = new_return_value - self.amount_refunded
+
+            net_diff = new_net_impact - orig_net_impact
+
+            if qty_diff != 0:
+                product = self.sale.product
+                product.quantity += qty_diff
+                product.save()
+
+            if net_diff != 0:
+                customer = self.sale.customer
+                customer.total_due = (customer.total_due - net_diff).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                customer.save()
+
+                self.sale.due_amount = (self.sale.due_amount - net_diff).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                self.sale.save()
 
         super().save(*args, **kwargs)
 

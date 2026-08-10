@@ -145,23 +145,21 @@ class DailyActivityAdmin(ModelAdmin):
         refunds = Refund.objects.filter(refund_date__date__gte=start_date, status='CLEARED').aggregate(Sum('amount'))['amount__sum'] or 0
         return_refunds = ProductReturn.objects.filter(return_date__date__gte=start_date).aggregate(Sum('amount_refunded'))['amount_refunded__sum'] or 0
 
-        # Expenses
+        # Expenses (Operating expenses: Daily expenses + Salaries)
         daily_expenses = ExpenseItem.objects.filter(daily_expense__date__gte=start_date).aggregate(Sum('amount'))['amount__sum'] or 0
         salaries = SalaryTransaction.objects.filter(date__gte=start_date, transaction_type__in=['PAYMENT', 'ADVANCE']).aggregate(Sum('amount'))['amount__sum'] or 0
-        orders = ProductOrder.objects.filter(order_date__date__gte=start_date).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
 
         total_cash_received = payments_cleared - refunds - return_refunds
-        total_expenses = daily_expenses + salaries + orders
+        total_expenses = daily_expenses + salaries
         
-        # Simplified Profit Logic (Revenue - Returns - COGS - Expenses)
-        # Note: True profit requires COGS (Purchase Rate), similar to Dashboard logic
+        # Gross Profit Logic (Revenue - Returns - COGS - Expenses)
         total_profit_potential = 0
         for sale in sales.select_related('product'):
-            purchase_rate = sale.product.purchase_rate or 0
+            purchase_rate = sale.purchase_price_at_that_time or (sale.product.purchase_rate or 0)
             total_profit_potential += (sale.quantity_sold * (sale.selling_price_at_that_time - purchase_rate))
 
         for ret in ProductReturn.objects.filter(return_date__date__gte=start_date).select_related('sale__product'):
-            purchase_rate = ret.sale.product.purchase_rate or 0
+            purchase_rate = ret.sale.purchase_price_at_that_time or (ret.sale.product.purchase_rate or 0)
             total_profit_potential -= (ret.quantity_returned * (ret.sale.selling_price_at_that_time - purchase_rate))
 
         extra_context = extra_context or {}

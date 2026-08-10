@@ -70,6 +70,7 @@ class SalaryTransaction(models.Model):
             raise ValidationError({'account': "Account is required for salary payments or advances."})
 
     def save(self, *args, **kwargs):
+        self.full_clean()
         if not self.pk:
             # New transaction: Update employee balance
             if self.transaction_type in ['ACCRUAL', 'BONUS']:
@@ -79,6 +80,21 @@ class SalaryTransaction(models.Model):
                 # Company paid the employee, reducing the debt
                 self.employee.current_balance -= self.amount
             self.employee.save()
+        else:
+            # Edit existing transaction: revert original and apply new
+            original = SalaryTransaction.objects.get(pk=self.pk)
+            if original.transaction_type in ['ACCRUAL', 'BONUS']:
+                self.employee.current_balance -= original.amount
+            elif original.transaction_type in ['PAYMENT', 'ADVANCE']:
+                self.employee.current_balance += original.amount
+
+            if self.transaction_type in ['ACCRUAL', 'BONUS']:
+                self.employee.current_balance += self.amount
+            elif self.transaction_type in ['PAYMENT', 'ADVANCE']:
+                self.employee.current_balance -= self.amount
+
+            self.employee.save()
+
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -134,7 +150,33 @@ class ProductOrder(models.Model):
         self.total_price = self.quantity * self.unit_price
         self.due_amount = self.total_price - self.amount_paid
         self.full_clean()
+
+        if not self.pk:
+            # New supplier order: increment product stock
+            self.product.quantity += self.quantity
+            self.product.save()
+        else:
+            # Editing existing supplier order
+            original = ProductOrder.objects.get(pk=self.pk)
+            if original.product_id == self.product_id:
+                qty_diff = self.quantity - original.quantity
+                if qty_diff != 0:
+                    self.product.quantity += qty_diff
+                    self.product.save()
+            else:
+                orig_prod = original.product
+                orig_prod.quantity -= original.quantity
+                orig_prod.save()
+                self.product.quantity += self.quantity
+                self.product.save()
+
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Revert product stock on order deletion
+        self.product.quantity -= self.quantity
+        self.product.save()
+        super().delete(*args, **kwargs)
 
     def __str__(self):
         return f"Order from {self.supplier_name} for {self.product.name}"

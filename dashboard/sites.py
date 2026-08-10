@@ -16,13 +16,12 @@ class CustomAdminSite(UnfoldAdminSite):
         
         extra_context = extra_context or {}
 
-        # Date filtering logic
+        # Date filtering logic - start from midnight 00:00:00 of the target day
         time_filter = request.GET.get('time_filter', 'last_7_days')
-        today = now()
-        start_date = today - timedelta(days=7) # Default
+        today = now().replace(hour=0, minute=0, second=0, microsecond=0)
 
         if time_filter == 'today':
-            start_date = today.replace(hour=0, minute=0, second=0, microsecond=0)
+            start_date = today
         elif time_filter == 'last_5_days':
             start_date = today - timedelta(days=5)
         elif time_filter == 'last_10_days':
@@ -31,6 +30,8 @@ class CustomAdminSite(UnfoldAdminSite):
             start_date = today - timedelta(days=30) 
         elif time_filter == 'last_year':
             start_date = today - timedelta(days=365) 
+        else:
+            start_date = today - timedelta(days=7) # Default last_7_days
 
         # --- PERIOD PERFORMANCE (Summary Cards) ---
         sales_queryset = Sale.objects.filter(sold_date__gte=start_date).select_related('product')
@@ -39,23 +40,25 @@ class CustomAdminSite(UnfoldAdminSite):
         
         for sale in sales_queryset:
             total_sales_volume += sale.total_price
-            purchase_rate = sale.product.purchase_rate or 0
+            purchase_rate = sale.purchase_price_at_that_time or (sale.product.purchase_rate or 0)
             total_potential_profit += sale.quantity_sold * (sale.selling_price_at_that_time - purchase_rate)
 
-        # Pending Cheques (All-Time, not just period, because they are still pending)
-        pending_cheques = Payment.objects.filter(payment_method='bank_check', status='PENDING')
-        pending_cheques_amount = pending_cheques.aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
-        pending_cheques_count = pending_cheques.count()
-
+        # Returns in period
         returns_queryset = ProductReturn.objects.filter(return_date__gte=start_date).select_related('sale__product')
         return_revenue_loss = 0
         return_profit_loss = 0
         for ret in returns_queryset:
             return_revenue_loss += ret.quantity_returned * ret.sale.selling_price_at_that_time
-            purchase_rate = ret.sale.product.purchase_rate or 0
+            purchase_rate = ret.sale.purchase_price_at_that_time or (ret.sale.product.purchase_rate or 0)
             return_profit_loss += ret.quantity_returned * (ret.sale.selling_price_at_that_time - purchase_rate)
 
         net_sales_volume = total_sales_volume - return_revenue_loss
+        gross_profit_from_sales = total_potential_profit - return_profit_loss
+
+        # Pending Cheques (All-Time, not just period, because they are still pending)
+        pending_cheques = Payment.objects.filter(payment_method='bank_check', status='PENDING')
+        pending_cheques_amount = pending_cheques.aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
+        pending_cheques_count = pending_cheques.count()
         
         # Cash Flow in Period
         cleared_payments = Payment.objects.filter(payment_date__gte=start_date, status='CLEARED').aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
@@ -64,17 +67,13 @@ class CustomAdminSite(UnfoldAdminSite):
         
         total_cash_received = cleared_payments - refunds_out - return_refunds_out
         
-        # Expenses in Period
-        daily_expenses = ExpenseItem.objects.filter(daily_expense__date__gte=start_date).aggregate(Sum('amount'))['amount__sum'] or 0
-        salaries = SalaryTransaction.objects.filter(date__gte=start_date, transaction_type__in=['PAYMENT', 'ADVANCE']).aggregate(Sum('amount'))['amount__sum'] or 0
-        orders = ProductOrder.objects.filter(order_date__gte=start_date).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
-        total_expense_amount = daily_expenses + salaries + orders
+        # Operating Expenses in Period (Daily expenses + Salaries)
+        daily_expenses = ExpenseItem.objects.filter(daily_expense__date__gte=start_date.date()).aggregate(Sum('amount'))['amount__sum'] or 0
+        salaries = SalaryTransaction.objects.filter(date__gte=start_date.date(), transaction_type__in=['PAYMENT', 'ADVANCE']).aggregate(Sum('amount'))['amount__sum'] or 0
+        total_expense_amount = daily_expenses + salaries
 
-        # Profit Estimation
-        total_profit_from_sales = 0
-        if net_sales_volume > 0:
-            total_profit_from_sales = (total_potential_profit - return_profit_loss) * (total_cash_received / net_sales_volume)
-        net_profit = total_profit_from_sales - total_expense_amount
+        # True Net Accrual Profit (Gross Sales Profit - Operating Expenses)
+        net_profit = gross_profit_from_sales - total_expense_amount
 
         # --- INDIVIDUAL ACCOUNT BALANCES (All-Time) ---
         accounts = Account.objects.all().order_by('account_type', 'name')
@@ -124,7 +123,7 @@ class CustomAdminSite(UnfoldAdminSite):
 
         if request.user.is_superuser or request.user.groups.filter(name='Admin').exists():
             extra_context.update({
-                'total_profit_from_sales': total_profit_from_sales,
+                'total_profit_from_sales': gross_profit_from_sales,
                 'net_profit': net_profit,
                 'show_profit_data': True, 
             })
