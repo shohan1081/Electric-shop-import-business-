@@ -26,11 +26,13 @@ class Customer(models.Model):
     def __str__(self):
         return f"{self.name} (Due: ৳{self.total_due})"
 
-    def get_transaction_history(self):
+    def get_transaction_history(self, user=None):
         """
         Gathers all related transactions (Sales, Payments, Returns) into a single chronological list.
         """
         history = []
+        from dashboard.models import ProfitSetting
+        can_see_profit = ProfitSetting.can_user_see_profit(user)
         
         # 0. Add Opening Balance (if any)
         if self.opening_balance != 0:
@@ -56,7 +58,8 @@ class Customer(models.Model):
             note_parts = [f"Unit Price: ৳{sale.selling_price_at_that_time}"]
             if sale.transport_fee and sale.transport_fee > 0:
                 note_parts.append(f"Transport: ৳{sale.transport_fee}")
-            note_parts.append(f"Profit: ৳{sale.profit}")
+            if can_see_profit:
+                note_parts.append(f"Profit: ৳{sale.profit}")
             if sale.condition_notes:
                 note_parts.append(sale.condition_notes)
             

@@ -28,9 +28,9 @@ class ProductAdmin(ModelAdmin):
         # Base fields visible to everyone
         fields = ['name', 'import_number', 'model', 'brand', 'unit_of_measure', 'quantity']
         
-        # Logic for Purchase Rate visibility:
-        # Only Superusers/Admins see it.
-        if request.user.is_superuser or request.user.groups.filter(name='Admin').exists():
+        # Logic for Purchase Rate visibility: Controlled by ProfitSetting
+        from dashboard.models import ProfitSetting
+        if ProfitSetting.can_user_see_profit(request.user):
             fields.append('purchase_rate')
             
         return (
@@ -40,14 +40,16 @@ class ProductAdmin(ModelAdmin):
         )
 
     def get_readonly_fields(self, request, obj=None):
-        # Prevent Co-Admin from seeing the value in edit mode even if they try to hack it
-        if not request.user.is_superuser and not request.user.groups.filter(name='Admin').exists():
+        # Prevent Co-Admin from seeing the value in edit mode if profit is disabled
+        from dashboard.models import ProfitSetting
+        if not ProfitSetting.can_user_see_profit(request.user):
             return self.readonly_fields + ('purchase_rate',)
         return self.readonly_fields
 
     def get_list_display(self, request):
-        # Only Admins see purchase_rate in the main list
-        if request.user.is_superuser or request.user.groups.filter(name='Admin').exists():
+        # Controlled by ProfitSetting
+        from dashboard.models import ProfitSetting
+        if ProfitSetting.can_user_see_profit(request.user):
             return ('name', 'import_number', 'model', 'brand', 'unit_of_measure', 'display_quantity', 'purchase_rate', 'listing_date')
         return ('name', 'import_number', 'model', 'brand', 'unit_of_measure', 'display_quantity', 'listing_date')
 
@@ -80,6 +82,14 @@ class ProductValuationAdmin(admin.ModelAdmin):
     search_fields = ('name', 'brand', 'model')
     actions = [export_to_excel]
     change_list_template = 'admin/inventory/productvaluation/change_list.html'
+
+    def has_module_permission(self, request):
+        from dashboard.models import ProfitSetting
+        return ProfitSetting.can_user_see_profit(request.user)
+
+    def has_view_permission(self, request, obj=None):
+        from dashboard.models import ProfitSetting
+        return ProfitSetting.can_user_see_profit(request.user)
 
     def display_quantity(self, obj):
         if obj.unit_of_measure == 'unit':

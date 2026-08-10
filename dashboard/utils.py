@@ -17,7 +17,9 @@ def export_to_excel(modeladmin, request, queryset):
 
         # 2. Prepare Headers
         # Get actual field objects to extract verbose names
-        fields = modeladmin.model._meta.fields
+        from dashboard.models import ProfitSetting
+        can_see_profit = ProfitSetting.can_user_see_profit(request.user)
+        fields = [f for f in modeladmin.model._meta.fields if can_see_profit or f.name not in ['profit', 'purchase_price_at_that_time', 'purchase_rate']]
         headers = [field.verbose_name.upper() for field in fields]
         worksheet.append(headers)
 
