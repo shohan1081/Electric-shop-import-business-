@@ -183,7 +183,7 @@ UNFOLD = {
                 "items": [
                     {
                         "title": "Daily Activity",
-                        "icon": "history_ed",
+                        "icon": "history_edu",
                         "link": "/admin/reports/dailyactivity/",
                     },
                 ],
