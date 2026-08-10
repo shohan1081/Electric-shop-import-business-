@@ -1,6 +1,99 @@
 {% extends "admin/change_list.html" %}
 {% load i18n admin_urls static admin_list %}
 
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* High-Contrast Light & Dark Mode Styles for Daily Activity Reports */
+    .report-card, .report-box {
+        background-color: #ffffff;
+        color: #18181b;
+        border-color: #e4e4e7;
+    }
+    
+    .report-card-title {
+        color: #71717a;
+    }
+
+    .report-card-val {
+        color: #18181b;
+    }
+
+    .report-table th {
+        background-color: #f4f4f5 !important;
+        color: #27272a !important;
+        border-color: #e4e4e7 !important;
+    }
+    
+    .report-table td {
+        color: #18181b !important;
+        border-color: #f4f4f5 !important;
+    }
+
+    .report-tab-btn-active {
+        background-color: #4f46e5 !important;
+        color: #ffffff !important;
+    }
+    
+    .report-tab-btn-inactive {
+        background-color: #e4e4e7 !important;
+        color: #18181b !important;
+        border: 1px solid #d4d4d8 !important;
+    }
+
+    /* Dark Mode Overrides (supports html.dark, body.dark, [data-theme='dark'], etc.) */
+    html.dark .report-card, html.dark .report-box,
+    body.dark .report-card, body.dark .report-box,
+    .dark .report-card, .dark .report-box,
+    [data-theme="dark"] .report-card, [data-theme="dark"] .report-box {
+        background-color: #18181b !important;
+        color: #f4f4f5 !important;
+        border-color: #27272a !important;
+    }
+
+    html.dark .report-card-title, body.dark .report-card-title,
+    .dark .report-card-title, [data-theme="dark"] .report-card-title {
+        color: #a1a1aa !important;
+    }
+
+    html.dark .report-card-val, body.dark .report-card-val,
+    .dark .report-card-val, [data-theme="dark"] .report-card-val {
+        color: #ffffff !important;
+    }
+
+    html.dark .report-table th, body.dark .report-table th,
+    .dark .report-table th, [data-theme="dark"] .report-table th {
+        background-color: #27272a !important;
+        color: #f4f4f5 !important;
+        border-color: #3f3f46 !important;
+    }
+
+    html.dark .report-table td, body.dark .report-table td,
+    .dark .report-table td, [data-theme="dark"] .report-table td {
+        color: #e4e4e7 !important;
+        border-color: #27272a !important;
+    }
+
+    html.dark .report-table td.text-zinc-500, body.dark .report-table td.text-zinc-500,
+    .dark .report-table td.text-zinc-500, [data-theme="dark"] .report-table td.text-zinc-500 {
+        color: #a1a1aa !important;
+    }
+
+    html.dark .report-tab-btn-inactive, body.dark .report-tab-btn-inactive,
+    .dark .report-tab-btn-inactive, [data-theme="dark"] .report-tab-btn-inactive {
+        background-color: #27272a !important;
+        color: #f4f4f5 !important;
+        border-color: #3f3f46 !important;
+    }
+
+    html.dark .report-tab-btn-inactive:hover, body.dark .report-tab-btn-inactive:hover,
+    .dark .report-tab-btn-inactive:hover, [data-theme="dark"] .report-tab-btn-inactive:hover {
+        background-color: #3f3f46 !important;
+        color: #ffffff !important;
+    }
+</style>
+{% endblock %}
+
 {% block content_title %}
     <h1 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">{% translate 'Daily Activity & Financial Reports' %}</h1>
 {% endblock %}
@@ -10,30 +103,30 @@
     <!-- Summary Performance Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <!-- Sales Volume Card -->
-        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
-            <div class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Sales Volume</div>
-            <div class="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">৳{{ report_summaries.total_sales_volume|floatformat:2 }}</div>
+        <div class="report-card rounded-xl border p-5 shadow-sm">
+            <div class="report-card-title text-xs font-semibold uppercase tracking-wider">Total Sales Volume</div>
+            <div class="report-card-val mt-2 text-2xl font-bold">৳{{ report_summaries.total_sales_volume|floatformat:2 }}</div>
             <div class="mt-2 w-full h-1 bg-emerald-500 rounded-full"></div>
         </div>
         
         <!-- Cash Received Card -->
-        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
-            <div class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Cash Received</div>
-            <div class="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">৳{{ report_summaries.total_cash_received|floatformat:2 }}</div>
+        <div class="report-card rounded-xl border p-5 shadow-sm">
+            <div class="report-card-title text-xs font-semibold uppercase tracking-wider">Cash Received</div>
+            <div class="report-card-val mt-2 text-2xl font-bold">৳{{ report_summaries.total_cash_received|floatformat:2 }}</div>
             <div class="mt-2 w-full h-1 bg-cyan-500 rounded-full"></div>
         </div>
 
         <!-- Total Expenses Card -->
-        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
-            <div class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Total Expenses</div>
-            <div class="mt-2 text-2xl font-bold text-zinc-900 dark:text-zinc-100">৳{{ report_summaries.total_expenses|floatformat:2 }}</div>
+        <div class="report-card rounded-xl border p-5 shadow-sm">
+            <div class="report-card-title text-xs font-semibold uppercase tracking-wider">Total Expenses</div>
+            <div class="report-card-val mt-2 text-2xl font-bold">৳{{ report_summaries.total_expenses|floatformat:2 }}</div>
             <div class="mt-2 w-full h-1 bg-rose-500 rounded-full"></div>
         </div>
 
         {% if show_profit_data %}
         <!-- Estimated Profit Card -->
-        <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
-            <div class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Estimated Profit</div>
+        <div class="report-card rounded-xl border p-5 shadow-sm">
+            <div class="report-card-title text-xs font-semibold uppercase tracking-wider">Estimated Profit</div>
             <div class="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">৳{{ report_summaries.net_profit|floatformat:2 }}</div>
             <div class="mt-2 w-full h-1 bg-sky-500 rounded-full"></div>
         </div>
@@ -42,28 +135,28 @@
     {% endif %}
 
     <!-- Detailed Operational Activity Breakdown -->
-    <div class="mb-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden text-zinc-800 dark:text-zinc-200">
+    <div class="report-box mb-6 rounded-xl border shadow-sm overflow-hidden">
         <!-- Navigation Tab Buttons -->
         <div class="flex flex-wrap gap-2 p-3 bg-zinc-100 dark:bg-zinc-800/80 border-b border-zinc-200 dark:border-zinc-800">
-            <button type="button" onclick="switchReportTab('sales')" id="tabBtn-sales" class="report-tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow-sm">
+            <button type="button" onclick="switchReportTab('sales')" id="tabBtn-sales" class="report-tab-btn report-tab-btn-active px-4 py-2 text-sm font-semibold rounded-lg transition-all shadow-sm">
                 🛒 Sales ({{ report_sales|length }})
             </button>
-            <button type="button" onclick="switchReportTab('payments')" id="tabBtn-payments" class="report-tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600">
+            <button type="button" onclick="switchReportTab('payments')" id="tabBtn-payments" class="report-tab-btn report-tab-btn-inactive px-4 py-2 text-sm font-semibold rounded-lg transition-all">
                 💳 Payments ({{ report_payments|length }})
             </button>
-            <button type="button" onclick="switchReportTab('expenses')" id="tabBtn-expenses" class="report-tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600">
+            <button type="button" onclick="switchReportTab('expenses')" id="tabBtn-expenses" class="report-tab-btn report-tab-btn-inactive px-4 py-2 text-sm font-semibold rounded-lg transition-all">
                 💸 Expenses ({{ report_expenses|length }})
             </button>
-            <button type="button" onclick="switchReportTab('orders')" id="tabBtn-orders" class="report-tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600">
+            <button type="button" onclick="switchReportTab('orders')" id="tabBtn-orders" class="report-tab-btn report-tab-btn-inactive px-4 py-2 text-sm font-semibold rounded-lg transition-all">
                 📦 Stock Orders ({{ report_orders|length }})
             </button>
-            <button type="button" onclick="switchReportTab('salaries')" id="tabBtn-salaries" class="report-tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600">
+            <button type="button" onclick="switchReportTab('salaries')" id="tabBtn-salaries" class="report-tab-btn report-tab-btn-inactive px-4 py-2 text-sm font-semibold rounded-lg transition-all">
                 👷 Salaries & Payroll ({{ report_salaries|length }})
             </button>
-            <button type="button" onclick="switchReportTab('returns')" id="tabBtn-returns" class="report-tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600">
+            <button type="button" onclick="switchReportTab('returns')" id="tabBtn-returns" class="report-tab-btn report-tab-btn-inactive px-4 py-2 text-sm font-semibold rounded-lg transition-all">
                 🔄 Returns & Refunds ({{ report_returns|length }})
             </button>
-            <button type="button" onclick="switchReportTab('audit')" id="tabBtn-audit" class="report-tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600">
+            <button type="button" onclick="switchReportTab('audit')" id="tabBtn-audit" class="report-tab-btn report-tab-btn-inactive px-4 py-2 text-sm font-semibold rounded-lg transition-all">
                 📋 Admin Audit Log
             </button>
         </div>
@@ -71,9 +164,9 @@
         <!-- Tab 1: Sales Table -->
         <div id="reportTab-sales" class="report-tab-content p-4 overflow-x-auto">
             <h3 class="text-base font-bold mb-3 text-zinc-900 dark:text-zinc-100">Sales Made in Period</h3>
-            <table class="w-full text-left text-sm border-collapse">
+            <table class="report-table w-full text-left text-sm border-collapse">
                 <thead>
-                    <tr class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 font-semibold">
+                    <tr class="border-b font-semibold">
                         <th class="p-3">Customer</th>
                         <th class="p-3">Product</th>
                         <th class="p-3">Qty</th>
@@ -85,9 +178,9 @@
                         <th class="p-3">Sold Date</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <tbody>
                     {% for sale in report_sales %}
-                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-800 dark:text-zinc-200">
+                    <tr class="border-b hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                         <td class="p-3 font-semibold text-zinc-900 dark:text-zinc-100">{{ sale.customer.name }}</td>
                         <td class="p-3">{{ sale.product.name }}</td>
                         <td class="p-3 font-bold">{{ sale.quantity_sold|floatformat:0 }}</td>
@@ -108,9 +201,9 @@
         <!-- Tab 2: Payments Table -->
         <div id="reportTab-payments" class="report-tab-content p-4 overflow-x-auto hidden">
             <h3 class="text-base font-bold mb-3 text-zinc-900 dark:text-zinc-100">Customer Payments Received</h3>
-            <table class="w-full text-left text-sm border-collapse">
+            <table class="report-table w-full text-left text-sm border-collapse">
                 <thead>
-                    <tr class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 font-semibold">
+                    <tr class="border-b font-semibold">
                         <th class="p-3">Customer</th>
                         <th class="p-3">Amount Paid</th>
                         <th class="p-3">Method</th>
@@ -120,9 +213,9 @@
                         <th class="p-3">Payment Date</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <tbody>
                     {% for pay in report_payments %}
-                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-800 dark:text-zinc-200">
+                    <tr class="border-b hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                         <td class="p-3 font-semibold text-zinc-900 dark:text-zinc-100">{{ pay.customer.name }}</td>
                         <td class="p-3 font-bold text-emerald-600 dark:text-emerald-400">৳{{ pay.amount_paid|floatformat:2 }}</td>
                         <td class="p-3">{{ pay.get_payment_method_display }}</td>
@@ -141,18 +234,18 @@
         <!-- Tab 3: Expenses Table -->
         <div id="reportTab-expenses" class="report-tab-content p-4 overflow-x-auto hidden">
             <h3 class="text-base font-bold mb-3 text-zinc-900 dark:text-zinc-100">Daily Expenses Recorded</h3>
-            <table class="w-full text-left text-sm border-collapse">
+            <table class="report-table w-full text-left text-sm border-collapse">
                 <thead>
-                    <tr class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 font-semibold">
+                    <tr class="border-b font-semibold">
                         <th class="p-3">Date</th>
                         <th class="p-3">Description</th>
                         <th class="p-3">Amount</th>
                         <th class="p-3">Account Paid From</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <tbody>
                     {% for exp in report_expenses %}
-                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-800 dark:text-zinc-200">
+                    <tr class="border-b hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                         <td class="p-3 text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{{ exp.daily_expense.date|date:"d/m/Y" }}</td>
                         <td class="p-3 font-semibold text-zinc-900 dark:text-zinc-100">{{ exp.description }}</td>
                         <td class="p-3 font-bold text-rose-600 dark:text-rose-400">৳{{ exp.amount|floatformat:2 }}</td>
@@ -168,9 +261,9 @@
         <!-- Tab 4: Stock Orders Table -->
         <div id="reportTab-orders" class="report-tab-content p-4 overflow-x-auto hidden">
             <h3 class="text-base font-bold mb-3 text-zinc-900 dark:text-zinc-100">Supplier Stock Purchases</h3>
-            <table class="w-full text-left text-sm border-collapse">
+            <table class="report-table w-full text-left text-sm border-collapse">
                 <thead>
-                    <tr class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 font-semibold">
+                    <tr class="border-b font-semibold">
                         <th class="p-3">Supplier</th>
                         <th class="p-3">Product</th>
                         <th class="p-3">Qty</th>
@@ -181,9 +274,9 @@
                         <th class="p-3">Order Date</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <tbody>
                     {% for ord in report_orders %}
-                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-800 dark:text-zinc-200">
+                    <tr class="border-b hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                         <td class="p-3 font-semibold text-zinc-900 dark:text-zinc-100">{{ ord.supplier_name }}</td>
                         <td class="p-3">{{ ord.product.name }}</td>
                         <td class="p-3 font-bold">{{ ord.quantity|floatformat:0 }}</td>
@@ -203,9 +296,9 @@
         <!-- Tab 5: Salaries Table -->
         <div id="reportTab-salaries" class="report-tab-content p-4 overflow-x-auto hidden">
             <h3 class="text-base font-bold mb-3 text-zinc-900 dark:text-zinc-100">Employee Salary & Payroll</h3>
-            <table class="w-full text-left text-sm border-collapse">
+            <table class="report-table w-full text-left text-sm border-collapse">
                 <thead>
-                    <tr class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 font-semibold">
+                    <tr class="border-b font-semibold">
                         <th class="p-3">Employee</th>
                         <th class="p-3">Type</th>
                         <th class="p-3">Amount</th>
@@ -213,9 +306,9 @@
                         <th class="p-3">Date</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <tbody>
                     {% for sal in report_salaries %}
-                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-800 dark:text-zinc-200">
+                    <tr class="border-b hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                         <td class="p-3 font-semibold text-zinc-900 dark:text-zinc-100">{{ sal.employee.name }}</td>
                         <td class="p-3"><span class="px-2 py-0.5 text-xs font-semibold rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">{{ sal.get_transaction_type_display }}</span></td>
                         <td class="p-3 font-bold text-rose-600 dark:text-rose-400">৳{{ sal.amount|floatformat:2 }}</td>
@@ -232,9 +325,9 @@
         <!-- Tab 6: Returns & Refunds Table -->
         <div id="reportTab-returns" class="report-tab-content p-4 overflow-x-auto hidden">
             <h3 class="text-base font-bold mb-3 text-zinc-900 dark:text-zinc-100">Product Returns & Customer Refunds</h3>
-            <table class="w-full text-left text-sm border-collapse">
+            <table class="report-table w-full text-left text-sm border-collapse">
                 <thead>
-                    <tr class="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300 font-semibold">
+                    <tr class="border-b font-semibold">
                         <th class="p-3">Customer</th>
                         <th class="p-3">Product</th>
                         <th class="p-3">Qty Returned</th>
@@ -244,9 +337,9 @@
                         <th class="p-3">Date</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                <tbody>
                     {% for ret in report_returns %}
-                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-800 dark:text-zinc-200">
+                    <tr class="border-b hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                         <td class="p-3 font-semibold text-zinc-900 dark:text-zinc-100">{{ ret.sale.customer.name }}</td>
                         <td class="p-3">{{ ret.sale.product.name }}</td>
                         <td class="p-3 font-bold text-amber-600 dark:text-amber-400">{{ ret.quantity_returned|floatformat:0 }}</td>
@@ -280,7 +373,7 @@
             // Reset button styles
             var btns = document.querySelectorAll('.report-tab-btn');
             btns.forEach(function(btn) {
-                btn.className = 'report-tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-600';
+                btn.className = 'report-tab-btn report-tab-btn-inactive px-4 py-2 text-sm font-semibold rounded-lg transition-all';
             });
 
             // Show active tab
@@ -292,7 +385,7 @@
             // Highlight active button
             var activeBtn = document.getElementById('tabBtn-' + tabName);
             if (activeBtn) {
-                activeBtn.className = 'report-tab-btn px-4 py-2 text-sm font-semibold rounded-lg transition-all bg-indigo-600 text-white shadow-sm';
+                activeBtn.className = 'report-tab-btn report-tab-btn-active px-4 py-2 text-sm font-semibold rounded-lg transition-all shadow-sm';
             }
         }
     </script>
