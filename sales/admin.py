@@ -134,7 +134,7 @@ class DefaultTodayFilter(admin.SimpleListFilter):
         return [self.parameter_name, 'sold_date__range__gte', 'sold_date__range__lte']
 
 class SaleAdmin(ModelAdmin):
-    list_display = ('customer', 'product', 'quantity_sold', 'total_price', 'amount_paid', 'payment_method', 'account', 'is_conditional', 'due_amount', 'sold_date')
+    list_display = ('customer', 'product', 'quantity_sold', 'total_price', 'amount_paid', 'due_amount', 'profit_display', 'payment_method', 'account', 'is_conditional', 'sold_date')
     list_filter = (DefaultTodayFilter, 'is_conditional', 'payment_method', 'customer', 'product', 'account')
     search_fields = ('customer__name', 'product__name', 'condition_notes')
     formfield_overrides = {
@@ -146,6 +146,15 @@ class SaleAdmin(ModelAdmin):
 
     class Media:
         js = ('admin/js/auto_search.js', 'admin/js/payment_logic.js')
+        css = {
+            'all': ('admin/css/sales_responsive.css',)
+        }
+
+    def profit_display(self, obj):
+        color = "#16a34a" if (obj.profit or 0) >= 0 else "#dc2626"
+        return format_html('<span style="color: {}; font-weight: bold;">৳{:,.2f}</span>', color, obj.profit or 0)
+    profit_display.short_description = "Profit"
+    profit_display.admin_order_field = "profit"
 
     def get_fieldsets(self, request, obj=None):
         fields = [

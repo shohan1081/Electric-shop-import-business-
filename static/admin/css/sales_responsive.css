@@ -1,0 +1,57 @@
+/* Responsive Sales Admin Table Styles */
+@media screen and (max-width: 1536px) {
+    /* Compact padding and font size for laptop viewports */
+    .model-sale #result_list th,
+    .model-sale #result_list td,
+    .change-list #result_list th,
+    .change-list #result_list td {
+        padding-left: 0.4rem !important;
+        padding-right: 0.4rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        font-size: 0.8125rem !important; /* 13px */
+    }
+    
+    .model-sale #result_list th div,
+    .model-sale #result_list td div {
+        font-size: 0.8125rem !important;
+    }
+}
+
+@media screen and (max-width: 1280px) {
+    /* Ultra-compact padding for small laptops and tablets */
+    .model-sale #result_list th,
+    .model-sale #result_list td {
+        padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
+        font-size: 0.75rem !important; /* 12px */
+    }
+}
+
+/* Ensure smooth horizontal scrollbar if needed without cutting content */
+.results,
+.results > div,
+#changelist-form .results {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+}
+
+/* Prevent date and method columns from ugly multi-line breaks */
+.model-sale #result_list th.column-sold_date,
+.model-sale #result_list td.field-sold_date,
+.model-sale #result_list th.column-payment_method,
+.model-sale #result_list td.field-payment_method,
+.model-sale #result_list th.column-profit_display,
+.model-sale #result_list td.field-profit_display {
+    white-space: nowrap !important;
+}
+
+/* Restrain customer & product name overflow with clean ellipsis */
+.model-sale #result_list td.field-customer,
+.model-sale #result_list td.field-product {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
