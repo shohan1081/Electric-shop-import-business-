@@ -151,8 +151,10 @@ class SaleAdmin(ModelAdmin):
         }
 
     def profit_display(self, obj):
-        color = "#16a34a" if (obj.profit or 0) >= 0 else "#dc2626"
-        return format_html('<span style="color: {}; font-weight: bold;">৳{:,.2f}</span>', color, obj.profit or 0)
+        profit_val = float(obj.profit or 0)
+        color = "#16a34a" if profit_val >= 0 else "#dc2626"
+        formatted_profit = f"৳{profit_val:,.2f}"
+        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, formatted_profit)
     profit_display.short_description = "Profit"
     profit_display.admin_order_field = "profit"
 
