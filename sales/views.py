@@ -29,7 +29,7 @@ def export_customer_history(request, customer_id):
     worksheet['A1'].alignment = center_aligned
 
     worksheet.append(["Phone:", customer.phone, "", "Current Due:", float(customer.total_due)])
-    worksheet.append(["Address:", customer.address, "", "Date:", timezone.now().strftime('%Y-%m-%d')])
+    worksheet.append(["Address:", customer.address, "", "Date:", timezone.localtime(timezone.now()).strftime('%Y-%m-%d %h:%i %p')])
     worksheet.append([]) # Empty row
 
     # 3. Sales History Section
@@ -46,8 +46,9 @@ def export_customer_history(request, customer_id):
 
     sales = customer.sales.all().order_by('-sold_date')
     for sale in sales:
+        local_sold_date = timezone.localtime(sale.sold_date).strftime('%Y-%m-%d %I:%M %p') if sale.sold_date else ""
         worksheet.append([
-            sale.sold_date.strftime('%Y-%m-%d %H:%M'),
+            local_sold_date,
             sale.product.name,
             sale.quantity_sold,
             float(sale.selling_price_at_that_time),
@@ -70,8 +71,9 @@ def export_customer_history(request, customer_id):
 
     payments = customer.payments.all().order_by('-payment_date')
     for pay in payments:
+        local_payment_date = timezone.localtime(pay.payment_date).strftime('%Y-%m-%d %I:%M %p') if pay.payment_date else ""
         worksheet.append([
-            pay.payment_date.strftime('%Y-%m-%d %H:%M'),
+            local_payment_date,
             float(pay.amount_paid),
             pay.note or "",
             "", ""

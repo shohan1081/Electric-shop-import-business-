@@ -282,13 +282,17 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Dhaka'
 
 USE_I18N = True
 
 USE_TZ = True
+
+# Bangladeshi Date & Time Formatting
+DATE_FORMAT = 'd/m/Y'
+DATETIME_FORMAT = 'd/m/Y h:i A'
+SHORT_DATE_FORMAT = 'd/m/Y'
+SHORT_DATETIME_FORMAT = 'd/m/Y h:i A'
 
 
 # Static files (CSS, JavaScript, Images)

@@ -31,9 +31,9 @@ def export_to_excel(modeladmin, request, queryset):
                 # Format specific types for Excel
                 if isinstance(value, timezone.datetime):
                     if timezone.is_aware(value):
-                        value = timezone.make_naive(value)
-                    # Convert to string to avoid potential serialization issues
-                    value = value.strftime('%Y-%m-%d %H:%M:%S')
+                        value = timezone.localtime(value)
+                    # Convert to string in Bangladesh format (d/m/Y h:i:s AM/PM)
+                    value = value.strftime('%d/%m/%Y %I:%M:%S %p')
                 
                 elif isinstance(value, (decimal.Decimal, float)):
                     value = float(value)
