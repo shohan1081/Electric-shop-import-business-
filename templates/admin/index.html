@@ -151,34 +151,76 @@
         </div>
     </div>
 
-    <!-- Inventory Stock Level (Simplified) -->
-    <div class="module">
-        <table style="width: 100%;">
-            <caption>Stock Levels (Current)</caption>
-            <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>Brand / Model</th>
-                    <th style="text-align: right;">Quantity</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for product in products %}
-                <tr>
-                    <td>{{ product.name }}</td>
-                    <td>{{ product.brand }} / {{ product.model }}</td>
-                    <td style="text-align: right; font-weight: bold;">
-                        <span style="color: {% if product.quantity < 5 %}#d9534f{% else %}#5cb85c{% endif %};">
-                            {{ product.quantity|floatformat:0 }} {{ product.get_unit_of_measure_display }}
-                        </span>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="3">No inventory data.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Inventory Stock Level (Collapsible) -->
+    <div class="module stock-module" style="margin-bottom: 25px;">
+        <div class="stock-header" onclick="toggleStockList()" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: #4f46e5; color: #fff; border-radius: 6px; user-select: none;">
+            <div style="display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 15px;">
+                <span>📦 Stock Levels (Current)</span>
+                <span class="stock-badge" style="background: rgba(255, 255, 255, 0.2); color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: normal;">
+                    {{ products|length }} Items
+                </span>
+            </div>
+            <button type="button" id="stockToggleBtn" style="background: #ffffff; color: #4f46e5; border: none; padding: 6px 14px; border-radius: 4px; font-weight: bold; font-size: 13px; cursor: pointer; transition: all 0.2s ease;">
+                Show Stock List
+            </button>
+        </div>
+
+        <div id="stockListContainer" style="display: none; margin-top: 10px; max-height: 450px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead style="position: sticky; top: 0; background: #f9fafb; z-index: 1;">
+                    <tr style="border-bottom: 2px solid #e5e7eb;">
+                        <th style="padding: 10px 15px; text-align: left;">Product</th>
+                        <th style="padding: 10px 15px; text-align: left;">Brand / Model</th>
+                        <th style="padding: 10px 15px; text-align: right;">Quantity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr style="border-bottom: 1px solid #f3f4f6;">
+                        <td style="padding: 8px 15px; font-weight: 500;">{{ product.name }}</td>
+                        <td style="padding: 8px 15px; color: #6b7280;">{{ product.brand|default:"-" }} / {{ product.model|default:"-" }}</td>
+                        <td style="padding: 8px 15px; text-align: right; font-weight: bold;">
+                            <span style="color: {% if product.quantity < 5 %}#dc2626{% else %}#16a34a{% endif %};">
+                                {{ product.quantity|floatformat:0 }} {{ product.get_unit_of_measure_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" style="padding: 15px; text-align: center; color: #9ca3af;">No inventory data available.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
+
+    <script>
+        function toggleStockList() {
+            var container = document.getElementById('stockListContainer');
+            var btn = document.getElementById('stockToggleBtn');
+            if (container.style.display === 'none' || container.style.display === '') {
+                container.style.display = 'block';
+                btn.innerText = 'Hide Stock List';
+                localStorage.setItem('stock_list_expanded', 'true');
+            } else {
+                container.style.display = 'none';
+                btn.innerText = 'Show Stock List';
+                localStorage.setItem('stock_list_expanded', 'false');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var expanded = localStorage.getItem('stock_list_expanded');
+            var container = document.getElementById('stockListContainer');
+            var btn = document.getElementById('stockToggleBtn');
+            if (expanded === 'true') {
+                container.style.display = 'block';
+                btn.innerText = 'Hide Stock List';
+            } else {
+                container.style.display = 'none';
+                btn.innerText = 'Show Stock List';
+            }
+        });
+    </script>
 
     <!-- Default App List -->
     {{ block.super }}
