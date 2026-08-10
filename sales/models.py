@@ -155,7 +155,7 @@ class Sale(models.Model):
     is_conditional = models.BooleanField(default=False, verbose_name="Conditional Sale (Payment on Delivery)")
     condition_notes = models.CharField(max_length=255, blank=True, null=True, help_text="e.g., Courier details, delivery conditions")
     
-    sold_date = models.DateTimeField(auto_now_add=True)
+    sold_date = models.DateTimeField(default=timezone.now)
 
     def clean(self):
         if self.product.unit_of_measure == 'unit' and self.quantity_sold is not None and self.quantity_sold % 1 != 0:
@@ -254,13 +254,15 @@ class Sale(models.Model):
                     amount_paid=self.amount_paid,
                     account=self.account,
                     payment_method=self.payment_method,
-                    status=status
+                    status=status,
+                    payment_date=self.sold_date
                 )
             else:
                 payment.amount_paid = self.amount_paid
                 payment.account = self.account
                 payment.payment_method = self.payment_method
                 payment.customer = self.customer
+                payment.payment_date = self.sold_date
             
             payment.save()
         else:
@@ -282,7 +284,7 @@ class Payment(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='payments')
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='sale_payments', null=True, blank=True)
     amount_paid = models.DecimalField(max_digits=14, decimal_places=2)
-    payment_date = models.DateTimeField(auto_now_add=True)
+    payment_date = models.DateTimeField(default=timezone.now)
     
     # New account management
     account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='payments', null=True, blank=True)

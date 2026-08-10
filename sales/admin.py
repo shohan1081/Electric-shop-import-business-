@@ -140,7 +140,7 @@ class SaleAdmin(ModelAdmin):
     formfield_overrides = {
         models.ForeignKey: {'widget': UnfoldAdminSelect2Widget},
     }
-    readonly_fields = ('total_price', 'due_amount', 'sold_date')
+    readonly_fields = ('total_price', 'due_amount')
     inlines = [ProductReturnInline]
     actions = [export_to_excel]
 
@@ -162,7 +162,7 @@ class PaymentAdmin(ModelAdmin):
     list_filter = ('payment_method', 'status', 'payment_date', 'account')
     search_fields = ('customer__name', 'cheque_number', 'account__name')
     autocomplete_fields = ('customer', 'account')
-    readonly_fields = ('payment_date', 'clearance_date')
+    readonly_fields = ('clearance_date',)
     actions = [export_to_excel, 'mark_cheque_cleared', 'mark_cheque_bounced']
 
     class Media:
