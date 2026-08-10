@@ -169,5 +169,12 @@ class DailyActivityAdmin(ModelAdmin):
             'total_expenses': total_expenses,
             'net_profit': total_profit_potential - total_expenses
         }
+        extra_context['report_sales'] = sales.select_related('customer', 'product', 'account').order_by('-sold_date')
+        extra_context['report_payments'] = Payment.objects.filter(payment_date__date__gte=start_date).select_related('customer', 'account', 'sale', 'sale__product').order_by('-payment_date')
+        extra_context['report_expenses'] = ExpenseItem.objects.filter(daily_expense__date__gte=start_date).select_related('daily_expense', 'account').order_by('-daily_expense__date')
+        extra_context['report_orders'] = ProductOrder.objects.filter(order_date__date__gte=start_date).select_related('product', 'account').order_by('-order_date')
+        extra_context['report_salaries'] = SalaryTransaction.objects.filter(date__gte=start_date).select_related('employee', 'account').order_by('-date')
+        extra_context['report_returns'] = ProductReturn.objects.filter(return_date__date__gte=start_date).select_related('sale', 'sale__customer', 'sale__product', 'account').order_by('-return_date')
+        extra_context['report_period'] = period
         
         return super().changelist_view(request, extra_context=extra_context)

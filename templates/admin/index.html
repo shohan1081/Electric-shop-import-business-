@@ -165,20 +165,20 @@
             </button>
         </div>
 
-        <div id="stockListContainer" style="display: none; margin-top: 10px; max-height: 450px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff;">
+        <div id="stockListContainer" class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200" style="display: none; margin-top: 10px; max-height: 450px; overflow-y: auto; border-radius: 6px;">
             <table style="width: 100%; border-collapse: collapse;">
-                <thead style="position: sticky; top: 0; background: #f9fafb; z-index: 1;">
-                    <tr style="border-bottom: 2px solid #e5e7eb;">
+                <thead style="position: sticky; top: 0; z-index: 1;" class="bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                    <tr class="border-b border-zinc-200 dark:border-zinc-700">
                         <th style="padding: 10px 15px; text-align: left;">Product</th>
                         <th style="padding: 10px 15px; text-align: left;">Brand / Model</th>
                         <th style="padding: 10px 15px; text-align: right;">Quantity</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
                     {% for product in products %}
-                    <tr style="border-bottom: 1px solid #f3f4f6;">
-                        <td style="padding: 8px 15px; font-weight: 500;">{{ product.name }}</td>
-                        <td style="padding: 8px 15px; color: #6b7280;">{{ product.brand|default:"-" }} / {{ product.model|default:"-" }}</td>
+                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                        <td style="padding: 8px 15px; font-weight: 500;" class="text-zinc-900 dark:text-zinc-100">{{ product.name }}</td>
+                        <td style="padding: 8px 15px;" class="text-zinc-500 dark:text-zinc-400">{{ product.brand|default:"-" }} / {{ product.model|default:"-" }}</td>
                         <td style="padding: 8px 15px; text-align: right; font-weight: bold;">
                             <span style="color: {% if product.quantity < 5 %}#dc2626{% else %}#16a34a{% endif %};">
                                 {{ product.quantity|floatformat:0 }} {{ product.get_unit_of_measure_display }}
@@ -186,7 +186,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="3" style="padding: 15px; text-align: center; color: #9ca3af;">No inventory data available.</td></tr>
+                    <tr><td colspan="3" style="padding: 15px; text-align: center;" class="text-zinc-500 dark:text-zinc-400 font-medium">No inventory data available.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
