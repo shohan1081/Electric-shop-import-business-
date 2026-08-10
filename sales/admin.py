@@ -150,6 +150,12 @@ class SaleAdmin(ModelAdmin):
             'all': ('admin/css/sales_responsive.css',)
         }
 
+    def get_list_display(self, request):
+        from dashboard.models import ProfitSetting
+        if ProfitSetting.can_user_see_profit(request.user):
+            return ('customer', 'product', 'quantity_sold', 'total_price', 'amount_paid', 'due_amount', 'profit_display', 'payment_method', 'account', 'is_conditional', 'sold_date')
+        return ('customer', 'product', 'quantity_sold', 'total_price', 'amount_paid', 'due_amount', 'payment_method', 'account', 'is_conditional', 'sold_date')
+
     def profit_display(self, obj):
         profit_val = float(obj.profit or 0)
         color = "#16a34a" if profit_val >= 0 else "#dc2626"

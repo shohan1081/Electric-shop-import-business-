@@ -162,7 +162,11 @@ class DailyActivityAdmin(ModelAdmin):
             purchase_rate = ret.sale.purchase_price_at_that_time or (ret.sale.product.purchase_rate or 0)
             total_profit_potential -= (ret.quantity_returned * (ret.sale.selling_price_at_that_time - purchase_rate))
 
+        from dashboard.models import ProfitSetting
+        show_profit_data = ProfitSetting.can_user_see_profit(request.user)
+
         extra_context = extra_context or {}
+        extra_context['show_profit_data'] = show_profit_data
         extra_context['report_summaries'] = {
             'total_sales_volume': total_sales_volume - returns_value,
             'total_cash_received': total_cash_received,

@@ -30,12 +30,14 @@
             <div class="mt-2 w-full h-1 bg-rose-500 rounded-full"></div>
         </div>
 
+        {% if show_profit_data %}
         <!-- Estimated Profit Card -->
         <div class="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-5 shadow-sm">
             <div class="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Estimated Profit</div>
             <div class="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">৳{{ report_summaries.net_profit|floatformat:2 }}</div>
             <div class="mt-2 w-full h-1 bg-sky-500 rounded-full"></div>
         </div>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -78,7 +80,7 @@
                         <th class="p-3">Total Price</th>
                         <th class="p-3">Amount Paid</th>
                         <th class="p-3">Due Amount</th>
-                        <th class="p-3">Profit</th>
+                        {% if show_profit_data %}<th class="p-3">Profit</th>{% endif %}
                         <th class="p-3">Account / Method</th>
                         <th class="p-3">Sold Date</th>
                     </tr>
@@ -92,12 +94,12 @@
                         <td class="p-3 font-bold text-indigo-600 dark:text-indigo-400">৳{{ sale.total_price|floatformat:2 }}</td>
                         <td class="p-3 text-emerald-600 dark:text-emerald-400">৳{{ sale.amount_paid|floatformat:2 }}</td>
                         <td class="p-3 text-rose-600 dark:text-rose-400">৳{{ sale.due_amount|floatformat:2 }}</td>
-                        <td class="p-3 font-bold text-emerald-600 dark:text-emerald-400">৳{{ sale.profit|floatformat:2 }}</td>
+                        {% if show_profit_data %}<td class="p-3 font-bold text-emerald-600 dark:text-emerald-400">৳{{ sale.profit|floatformat:2 }}</td>{% endif %}
                         <td class="p-3 text-xs text-zinc-500 dark:text-zinc-400">{{ sale.account.name|default:"-" }} ({{ sale.get_payment_method_display }})</td>
                         <td class="p-3 text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{{ sale.sold_date|date:"d/m/Y h:i A" }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="9" class="p-6 text-center text-zinc-500 dark:text-zinc-400 font-medium">No sales recorded for this period.</td></tr>
+                    <tr><td colspan="{% if show_profit_data %}9{% else %}8{% endif %}" class="p-6 text-center text-zinc-500 dark:text-zinc-400 font-medium">No sales recorded for this period.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

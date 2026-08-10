@@ -121,7 +121,8 @@ class CustomAdminSite(UnfoldAdminSite):
             'account_details': account_details,
         })
 
-        if request.user.is_superuser or request.user.groups.filter(name='Admin').exists():
+        from .models import ProfitSetting
+        if ProfitSetting.can_user_see_profit(request.user):
             extra_context.update({
                 'total_profit_from_sales': gross_profit_from_sales,
                 'net_profit': net_profit,
