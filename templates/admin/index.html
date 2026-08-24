@@ -193,19 +193,33 @@
                 <div class="detail">{{ pending_cheques_count }} cheque(s) to clear</div>
             </div>
 
-            <!-- Expenses -->
-            <div class="stat-box">
+            <!-- Non-Business Expenses -->
+            <div class="stat-box" style="cursor: pointer;" onclick="window.location='/admin/expenses/dailyexpense/'">
+                <h3>Non-Business Exp. ({% if time_filter == 'today' %}Today{% elif time_filter == 'last_5_days' %}Last 5 Days{% elif time_filter == 'last_10_days' %}Last 10 Days{% elif time_filter == 'last_month' %}Last Month{% elif time_filter == 'last_year' %}Last Year{% else %}Last 7 Days{% endif %})</h3>
+                <div class="value" style="color: #ea580c;">৳{{ non_business_expense_amount|floatformat:0 }}</div>
+                <div class="detail">Deducts from Est. Profit</div>
+            </div>
+
+            <!-- Business Expenses -->
+            <div class="stat-box" style="cursor: pointer;" onclick="window.location='/admin/expenses/dailyexpense/'">
+                <h3>Business Exp. ({% if time_filter == 'today' %}Today{% elif time_filter == 'last_5_days' %}Last 5 Days{% elif time_filter == 'last_10_days' %}Last 10 Days{% elif time_filter == 'last_month' %}Last Month{% elif time_filter == 'last_year' %}Last Year{% else %}Last 7 Days{% endif %})</h3>
+                <div class="value" style="color: #0284c7;">৳{{ business_expense_amount|floatformat:0 }}</div>
+                <div class="detail">Does not deduct from profit</div>
+            </div>
+
+            <!-- Total Expenses -->
+            <div class="stat-box" style="cursor: pointer;" onclick="window.location='/admin/expenses/dailyexpense/'">
                 <h3>Total Expenses ({% if time_filter == 'today' %}Today{% elif time_filter == 'last_5_days' %}Last 5 Days{% elif time_filter == 'last_10_days' %}Last 10 Days{% elif time_filter == 'last_month' %}Last Month{% elif time_filter == 'last_year' %}Last Year{% else %}Last 7 Days{% endif %})</h3>
                 <div class="value" style="color: #d9534f;">৳{{ total_expense_amount|floatformat:0 }}</div>
-                <div class="detail">Operational costs in period</div>
+                <div class="detail">All operational costs & salaries</div>
             </div>
 
             {% if show_profit_data %}
             <!-- Net Profit -->
             <div class="stat-box">
                 <h3>Est. Profit ({% if time_filter == 'today' %}Today{% elif time_filter == 'last_5_days' %}Last 5 Days{% elif time_filter == 'last_10_days' %}Last 10 Days{% elif time_filter == 'last_month' %}Last Month{% elif time_filter == 'last_year' %}Last Year{% else %}Last 7 Days{% endif %})</h3>
-                <div class="value" style="color: #5cb85c;">৳{{ net_profit|floatformat:0 }}</div>
-                <div class="detail">Based on COGS & Expenses</div>
+                <div class="value" style="color: #16a34a;">৳{{ net_profit|floatformat:0 }}</div>
+                <div class="detail">Based on COGS & Non-Business Costs</div>
             </div>
             {% endif %}
         </div>

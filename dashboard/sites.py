@@ -73,6 +73,10 @@ class CustomAdminSite(UnfoldAdminSite):
             daily_expense__date__gte=start_date.date(),
             expense_type='non_business'
         ).aggregate(Sum('amount'))['amount__sum'] or 0
+        business_expenses = ExpenseItem.objects.filter(
+            daily_expense__date__gte=start_date.date(),
+            expense_type='business'
+        ).aggregate(Sum('amount'))['amount__sum'] or 0
         
         salaries = SalaryTransaction.objects.filter(date__gte=start_date.date(), transaction_type__in=['PAYMENT', 'ADVANCE']).aggregate(Sum('amount'))['amount__sum'] or 0
         total_expense_amount = daily_expenses_total + salaries
@@ -134,6 +138,9 @@ class CustomAdminSite(UnfoldAdminSite):
             'time_filter': time_filter,
             'total_sales_amount': total_cash_received,
             'total_expense_amount': total_expense_amount,
+            'non_business_expense_amount': non_business_expenses,
+            'business_expense_amount': business_expenses,
+            'salary_expense_amount': salaries,
             'pending_cheques_amount': pending_cheques_amount,
             'pending_cheques_count': pending_cheques_count,
             'products': Product.objects.all().order_by('name'),
