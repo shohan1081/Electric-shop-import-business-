@@ -89,6 +89,13 @@ class CustomAdminSite(UnfoldAdminSite):
         total_bank = 0
         total_mobile = 0
 
+        primary_cash_account = accounts.filter(account_type='cash').first()
+        unassigned_expenses = ExpenseItem.objects.filter(account__isnull=True).aggregate(Sum('amount'))['amount__sum'] or 0
+        unassigned_salaries = SalaryTransaction.objects.filter(account__isnull=True, transaction_type__in=['PAYMENT', 'ADVANCE']).aggregate(Sum('amount'))['amount__sum'] or 0
+        unassigned_orders = ProductOrder.objects.filter(account__isnull=True).aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
+        unassigned_returns = ProductReturn.objects.filter(account__isnull=True).aggregate(Sum('amount_refunded'))['amount_refunded__sum'] or 0
+        unassigned_refunds = Refund.objects.filter(account__isnull=True, status='CLEARED').aggregate(Sum('amount'))['amount__sum'] or 0
+
         for acc in accounts:
             # Money In
             payments_in = Payment.objects.filter(account=acc, status='CLEARED').aggregate(Sum('amount_paid'))['amount_paid__sum'] or 0
@@ -101,6 +108,14 @@ class CustomAdminSite(UnfoldAdminSite):
             returns_out = ProductReturn.objects.filter(account=acc).aggregate(Sum('amount_refunded'))['amount_refunded__sum'] or 0
             refunds_out_all = Refund.objects.filter(account=acc, status='CLEARED').aggregate(Sum('amount'))['amount__sum'] or 0
             transfers_out = AccountTransfer.objects.filter(from_account=acc).aggregate(Sum('amount'))['amount__sum'] or 0
+
+            # Fallback: attribute unassigned transactions to the primary cash account
+            if primary_cash_account and acc.id == primary_cash_account.id:
+                expenses_out += unassigned_expenses
+                salaries_out += unassigned_salaries
+                orders_out += unassigned_orders
+                returns_out += unassigned_returns
+                refunds_out_all += unassigned_refunds
 
             balance = acc.initial_balance + (payments_in + transfers_in) - (expenses_out + salaries_out + orders_out + returns_out + refunds_out_all + transfers_out)
             

@@ -37,6 +37,13 @@ class DailyExpense(models.Model):
     def __str__(self):
         return f"Expenses for {self.date}"
 
+def get_default_cash_account():
+    try:
+        cash_acc = Account.objects.filter(account_type='cash').first()
+        return cash_acc.id if cash_acc else None
+    except Exception:
+        return None
+
 class ExpenseItem(models.Model):
     EXPENSE_TYPE_CHOICES = (
         ('business', 'Business Expense'),
@@ -47,7 +54,29 @@ class ExpenseItem(models.Model):
     expense_type = models.CharField(max_length=20, choices=EXPENSE_TYPE_CHOICES, default='non_business', verbose_name="Expense Type")
     description = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='expenses', null=True)
+    account = models.ForeignKey(
+        Account,
+        on_delete=models.PROTECT,
+        related_name='expenses',
+        default=get_default_cash_account,
+        null=True,
+        blank=True,
+        verbose_name="Account / Payment Method"
+    )
+
+    def clean(self):
+        super().clean()
+        if not self.account:
+            cash_account = Account.objects.filter(account_type='cash').first()
+            if cash_account:
+                self.account = cash_account
+
+    def save(self, *args, **kwargs):
+        if not self.account:
+            cash_account = Account.objects.filter(account_type='cash').first()
+            if cash_account:
+                self.account = cash_account
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"[{self.get_expense_type_display()}] {self.description}: {self.amount}"
