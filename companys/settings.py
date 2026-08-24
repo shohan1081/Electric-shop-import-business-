@@ -36,6 +36,17 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-g+r)##hxjm(h_6-6xbp7#otu
 DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
+# Always ensure PythonAnywhere and local hosts are included
+for host in ['zahid123.pythonanywhere.com', '.pythonanywhere.com', '127.0.0.1', 'localhost']:
+    if host not in ALLOWED_HOSTS and '*' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host)
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://zahid123.pythonanywhere.com',
+    'https://*.pythonanywhere.com',
+    'http://127.0.0.1',
+    'http://localhost',
+]
 
 
 # Application definition
