@@ -78,7 +78,7 @@ class CustomerAdmin(ModelAdmin):
         js = ('admin/js/auto_search.js?v=3',)
 
 class DefaultTodayFilter(admin.SimpleListFilter):
-    title = 'date filter'
+    title = 'Date Filter'
     parameter_name = 'sold_date'
     template = 'admin/sales/date_range_filter.html'
 
@@ -90,37 +90,42 @@ class DefaultTodayFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         return (
+            ('all', 'All Time'),
             ('today', 'Today'),
             ('yesterday', 'Yesterday'),
             ('last_7_days', 'Last 7 Days'),
             ('this_month', 'This Month'),
-            ('all', 'All Time'),
             ('custom', 'Custom Range'),
         )
 
     def queryset(self, request, queryset):
-        if self.value() == 'today' or self.value() is None:
-            today = timezone.now().date()
-            return queryset.filter(sold_date__date=today)
-        
-        if self.value() == 'yesterday':
-            yesterday = timezone.now().date() - timezone.timedelta(days=1)
-            return queryset.filter(sold_date__date=yesterday)
-
-        if self.value() == 'last_7_days':
-            seven_days_ago = timezone.now().date() - timezone.timedelta(days=7)
-            return queryset.filter(sold_date__date__gte=seven_days_ago)
-
-        if self.value() == 'this_month':
-            return queryset.filter(sold_date__month=timezone.now().month, sold_date__year=timezone.now().year)
-
-        if self.value() == 'all':
+        val = self.value()
+        if not val or val == 'all':
             return queryset
 
-        if self.value() == 'custom':
+        now_local = timezone.localtime(timezone.now())
+        today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        if val == 'today':
+            return queryset.filter(sold_date__gte=today_start, sold_date__lte=today_end)
+
+        if val == 'yesterday':
+            yesterday_start = today_start - timezone.timedelta(days=1)
+            yesterday_end = today_end - timezone.timedelta(days=1)
+            return queryset.filter(sold_date__gte=yesterday_start, sold_date__lte=yesterday_end)
+
+        if val == 'last_7_days':
+            seven_days_ago = today_start - timezone.timedelta(days=7)
+            return queryset.filter(sold_date__gte=seven_days_ago)
+
+        if val == 'this_month':
+            month_start = today_start.replace(day=1)
+            return queryset.filter(sold_date__gte=month_start)
+
+        if val == 'custom':
             from_date = request.GET.get('sold_date__range__gte')
             to_date = request.GET.get('sold_date__range__lte')
-            
             if from_date and to_date:
                 return queryset.filter(sold_date__date__range=[from_date, to_date])
             elif from_date:
@@ -137,6 +142,7 @@ class SaleAdmin(ModelAdmin):
     list_display = ('customer', 'product', 'quantity_sold', 'total_price', 'amount_paid', 'due_amount', 'profit_display', 'payment_method', 'account', 'is_conditional', 'sold_date')
     list_filter = (DefaultTodayFilter, 'is_conditional', 'payment_method', 'customer', 'product', 'account')
     search_fields = ('customer__name', 'product__name', 'condition_notes')
+    ordering = ('-sold_date',)
     formfield_overrides = {
         models.ForeignKey: {'widget': UnfoldAdminSelect2Widget},
     }
