@@ -146,13 +146,18 @@ class DailyActivityAdmin(ModelAdmin):
         return_refunds = ProductReturn.objects.filter(return_date__date__gte=start_date).aggregate(Sum('amount_refunded'))['amount_refunded__sum'] or 0
 
         # Expenses (Operating expenses: Daily expenses + Salaries)
-        daily_expenses = ExpenseItem.objects.filter(daily_expense__date__gte=start_date).aggregate(Sum('amount'))['amount__sum'] or 0
+        daily_expenses_total = ExpenseItem.objects.filter(daily_expense__date__gte=start_date).aggregate(Sum('amount'))['amount__sum'] or 0
+        non_business_expenses = ExpenseItem.objects.filter(
+            daily_expense__date__gte=start_date,
+            expense_type='non_business'
+        ).aggregate(Sum('amount'))['amount__sum'] or 0
+
         salaries = SalaryTransaction.objects.filter(date__gte=start_date, transaction_type__in=['PAYMENT', 'ADVANCE']).aggregate(Sum('amount'))['amount__sum'] or 0
 
         total_cash_received = payments_cleared - refunds - return_refunds
-        total_expenses = daily_expenses + salaries
+        total_expenses = daily_expenses_total + salaries
         
-        # Gross Profit Logic (Revenue - Returns - COGS - Expenses)
+        # Gross Profit Logic (Revenue - Returns - COGS - Non-Business Expenses - Salaries)
         total_profit_potential = 0
         for sale in sales.select_related('product'):
             purchase_rate = sale.purchase_price_at_that_time or (sale.product.purchase_rate or 0)
@@ -171,7 +176,7 @@ class DailyActivityAdmin(ModelAdmin):
             'total_sales_volume': total_sales_volume - returns_value,
             'total_cash_received': total_cash_received,
             'total_expenses': total_expenses,
-            'net_profit': total_profit_potential - total_expenses
+            'net_profit': total_profit_potential - (non_business_expenses + salaries)
         }
         extra_context['report_sales'] = sales.select_related('customer', 'product', 'account').order_by('-sold_date')
         extra_context['report_payments'] = Payment.objects.filter(payment_date__date__gte=start_date).select_related('customer', 'account', 'sale', 'sale__product').order_by('-payment_date')

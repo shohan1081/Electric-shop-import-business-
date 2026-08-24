@@ -26,17 +26,31 @@ class DailyExpense(models.Model):
     def total_amount(self):
         return self.items.aggregate(models.Sum('amount'))['amount__sum'] or 0
 
+    @property
+    def business_amount(self):
+        return self.items.filter(expense_type='business').aggregate(models.Sum('amount'))['amount__sum'] or 0
+
+    @property
+    def non_business_amount(self):
+        return self.items.filter(expense_type='non_business').aggregate(models.Sum('amount'))['amount__sum'] or 0
+
     def __str__(self):
         return f"Expenses for {self.date}"
 
 class ExpenseItem(models.Model):
+    EXPENSE_TYPE_CHOICES = (
+        ('business', 'Business Expense'),
+        ('non_business', 'Non-Business Expense'),
+    )
+
     daily_expense = models.ForeignKey(DailyExpense, on_delete=models.CASCADE, related_name='items')
+    expense_type = models.CharField(max_length=20, choices=EXPENSE_TYPE_CHOICES, default='non_business', verbose_name="Expense Type")
     description = models.CharField(max_length=255)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='expenses', null=True)
 
     def __str__(self):
-        return f"{self.description}: {self.amount}"
+        return f"[{self.get_expense_type_display()}] {self.description}: {self.amount}"
 
 class Employee(models.Model):
     name = models.CharField(max_length=200)

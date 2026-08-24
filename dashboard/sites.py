@@ -68,12 +68,19 @@ class CustomAdminSite(UnfoldAdminSite):
         total_cash_received = cleared_payments - refunds_out - return_refunds_out
         
         # Operating Expenses in Period (Daily expenses + Salaries)
-        daily_expenses = ExpenseItem.objects.filter(daily_expense__date__gte=start_date.date()).aggregate(Sum('amount'))['amount__sum'] or 0
+        daily_expenses_total = ExpenseItem.objects.filter(daily_expense__date__gte=start_date.date()).aggregate(Sum('amount'))['amount__sum'] or 0
+        non_business_expenses = ExpenseItem.objects.filter(
+            daily_expense__date__gte=start_date.date(),
+            expense_type='non_business'
+        ).aggregate(Sum('amount'))['amount__sum'] or 0
+        
         salaries = SalaryTransaction.objects.filter(date__gte=start_date.date(), transaction_type__in=['PAYMENT', 'ADVANCE']).aggregate(Sum('amount'))['amount__sum'] or 0
-        total_expense_amount = daily_expenses + salaries
+        total_expense_amount = daily_expenses_total + salaries
 
-        # True Net Accrual Profit (Gross Sales Profit - Operating Expenses)
-        net_profit = gross_profit_from_sales - total_expense_amount
+        # True Net Accrual Profit:
+        # Non-business expenses and salaries subtract from profit.
+        # Business expenses do NOT subtract from estimated profit.
+        net_profit = gross_profit_from_sales - (non_business_expenses + salaries)
 
         # --- INDIVIDUAL ACCOUNT BALANCES (All-Time) ---
         accounts = Account.objects.all().order_by('account_type', 'name')

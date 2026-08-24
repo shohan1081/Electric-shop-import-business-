@@ -13,10 +13,11 @@ class AccountAdmin(ModelAdmin):
 class ExpenseItemInline(TabularInline):
     model = ExpenseItem
     extra = 1
+    fields = ('expense_type', 'description', 'amount', 'account')
 
 @admin.register(DailyExpense, site=custom_admin_site)
 class DailyExpenseAdmin(ModelAdmin):
-    list_display = ('date', 'total_amount_display', 'items_summary')
+    list_display = ('date', 'total_amount_display', 'non_business_amount_display', 'business_amount_display', 'items_summary')
     inlines = [ExpenseItemInline]
     ordering = ('-date',)
 
@@ -24,11 +25,19 @@ class DailyExpenseAdmin(ModelAdmin):
         return super().get_queryset(request).prefetch_related('items', 'items__account')
 
     def total_amount_display(self, obj):
-        return f"৳{obj.total_amount}"
-    total_amount_display.short_description = 'Total Amount'
+        return f"৳{obj.total_amount:,.2f}"
+    total_amount_display.short_description = 'Total Expenses'
+
+    def non_business_amount_display(self, obj):
+        return f"৳{obj.non_business_amount:,.2f}"
+    non_business_amount_display.short_description = 'Non-Business (Deducts Profit)'
+
+    def business_amount_display(self, obj):
+        return f"৳{obj.business_amount:,.2f}"
+    business_amount_display.short_description = 'Business (No Profit Deduct)'
 
     def items_summary(self, obj):
-        return ", ".join([f"{item.description} (৳{item.amount})" for item in obj.items.all()])
+        return ", ".join([f"[{item.get_expense_type_display()}] {item.description} (৳{item.amount})" for item in obj.items.all()])
     items_summary.short_description = 'Items Summary'
 
 class SalaryTransactionInline(TabularInline):

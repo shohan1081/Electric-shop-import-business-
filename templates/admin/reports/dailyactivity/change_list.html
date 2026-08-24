@@ -238,6 +238,7 @@
                 <thead>
                     <tr class="border-b font-semibold">
                         <th class="p-3">Date</th>
+                        <th class="p-3">Type</th>
                         <th class="p-3">Description</th>
                         <th class="p-3">Amount</th>
                         <th class="p-3">Account Paid From</th>
@@ -247,12 +248,17 @@
                     {% for exp in report_expenses %}
                     <tr class="border-b hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                         <td class="p-3 text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{{ exp.daily_expense.date|date:"d/m/Y" }}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-0.5 text-xs font-semibold rounded {% if exp.expense_type == 'business' %}bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800{% else %}bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800{% endif %}">
+                                {{ exp.get_expense_type_display }}
+                            </span>
+                        </td>
                         <td class="p-3 font-semibold text-zinc-900 dark:text-zinc-100">{{ exp.description }}</td>
                         <td class="p-3 font-bold text-rose-600 dark:text-rose-400">৳{{ exp.amount|floatformat:2 }}</td>
                         <td class="p-3">{{ exp.account.name|default:"-" }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="4" class="p-6 text-center text-zinc-500 dark:text-zinc-400 font-medium">No expenses recorded for this period.</td></tr>
+                    <tr><td colspan="5" class="p-6 text-center text-zinc-500 dark:text-zinc-400 font-medium">No expenses recorded for this period.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

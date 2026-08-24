@@ -34,6 +34,58 @@
         color: #888;
         margin-top: 5px;
     }
+
+    /* Filter Bar Styles */
+    .time-filter-bar {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .filter-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        color: #374151;
+    }
+    .filter-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .filter-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        border-radius: 6px;
+        text-decoration: none !important;
+        color: #4b5563;
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        transition: all 0.2s ease;
+    }
+    .filter-btn:hover {
+        background: #e5e7eb;
+        color: #111827;
+    }
+    .filter-btn.active {
+        background: #4f46e5;
+        color: #ffffff !important;
+        border-color: #4f46e5;
+        font-weight: 600;
+        box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);
+    }
     
     /* Dark mode support if enabled in browser */
     @media (prefers-color-scheme: dark) {
@@ -43,6 +95,27 @@
         }
         .stat-box .value { color: #eee; }
         .stat-box h3 { color: #aaa; }
+        .time-filter-bar {
+            background: #18181b;
+            border-color: #27272a;
+        }
+        .filter-label {
+            color: #e4e4e7;
+        }
+        .filter-btn {
+            background: #27272a;
+            color: #d4d4d8;
+            border-color: #3f3f46;
+        }
+        .filter-btn:hover {
+            background: #3f3f46;
+            color: #ffffff;
+        }
+        .filter-btn.active {
+            background: #6366f1;
+            color: #ffffff !important;
+            border-color: #6366f1;
+        }
     }
 
     /* Standard Django module override for stats */
@@ -86,12 +159,31 @@
 
     <!-- Dashboard Statistics Section -->
     <div class="stats-module">
+
+        <!-- Time Period Filter Bar -->
+        <div class="time-filter-bar">
+            <div class="filter-label">
+                <svg style="width: 18px; height: 18px; color: #4f46e5;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <span>Select Period:</span>
+            </div>
+            <div class="filter-buttons">
+                <a href="?time_filter=today" class="filter-btn {% if time_filter == 'today' %}active{% endif %}">Today</a>
+                <a href="?time_filter=last_5_days" class="filter-btn {% if time_filter == 'last_5_days' %}active{% endif %}">Last 5 Days</a>
+                <a href="?time_filter=last_7_days" class="filter-btn {% if time_filter == 'last_7_days' or not time_filter %}active{% endif %}">Last 7 Days</a>
+                <a href="?time_filter=last_10_days" class="filter-btn {% if time_filter == 'last_10_days' %}active{% endif %}">Last 10 Days</a>
+                <a href="?time_filter=last_month" class="filter-btn {% if time_filter == 'last_month' %}active{% endif %}">Last Month (30d)</a>
+                <a href="?time_filter=last_year" class="filter-btn {% if time_filter == 'last_year' %}active{% endif %}">Last Year (365d)</a>
+            </div>
+        </div>
+
         <div class="dashboard-stats">
             <!-- Revenue -->
             <div class="stat-box">
-                <h3>Cash In (Period)</h3>
+                <h3>Cash In ({% if time_filter == 'today' %}Today{% elif time_filter == 'last_5_days' %}Last 5 Days{% elif time_filter == 'last_10_days' %}Last 10 Days{% elif time_filter == 'last_month' %}Last Month{% elif time_filter == 'last_year' %}Last Year{% else %}Last 7 Days{% endif %})</h3>
                 <div class="value">৳{{ total_sales_amount|floatformat:0 }}</div>
-                <div class="detail">All cleared payments</div>
+                <div class="detail">All cleared payments in period</div>
             </div>
 
             <!-- Pending Cheques -->
@@ -103,15 +195,15 @@
 
             <!-- Expenses -->
             <div class="stat-box">
-                <h3>Total Expenses (Period)</h3>
+                <h3>Total Expenses ({% if time_filter == 'today' %}Today{% elif time_filter == 'last_5_days' %}Last 5 Days{% elif time_filter == 'last_10_days' %}Last 10 Days{% elif time_filter == 'last_month' %}Last Month{% elif time_filter == 'last_year' %}Last Year{% else %}Last 7 Days{% endif %})</h3>
                 <div class="value" style="color: #d9534f;">৳{{ total_expense_amount|floatformat:0 }}</div>
-                <div class="detail">Operational costs</div>
+                <div class="detail">Operational costs in period</div>
             </div>
 
             {% if show_profit_data %}
             <!-- Net Profit -->
             <div class="stat-box">
-                <h3>Est. Profit (Period)</h3>
+                <h3>Est. Profit ({% if time_filter == 'today' %}Today{% elif time_filter == 'last_5_days' %}Last 5 Days{% elif time_filter == 'last_10_days' %}Last 10 Days{% elif time_filter == 'last_month' %}Last Month{% elif time_filter == 'last_year' %}Last Year{% else %}Last 7 Days{% endif %})</h3>
                 <div class="value" style="color: #5cb85c;">৳{{ net_profit|floatformat:0 }}</div>
                 <div class="detail">Based on COGS & Expenses</div>
             </div>
